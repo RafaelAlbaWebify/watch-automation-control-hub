@@ -10,8 +10,10 @@ from urllib.parse import urljoin, urlparse
 import httpx
 
 from watch.models import ObservationSet, Target
+from watch.tls import inspect_tls_days_remaining
 
 DnsResolver = Callable[[str], list[str]]
+TlsProbe = Callable[[str, str, int, int], int]
 
 
 class _TitleParser(HTMLParser):
@@ -66,10 +68,12 @@ class WebsiteCollector:
         self,
         client: httpx.Client | None = None,
         dns_resolver: DnsResolver = resolve_hostname,
+        tls_probe: TlsProbe = inspect_tls_days_remaining,
         max_redirects: int = 5,
     ) -> None:
         self._client = client
         self._dns_resolver = dns_resolver
+        self._tls_probe = tls_probe
         self._max_redirects = max_redirects
 
     def _resolve_public(self, url: str) -> list[str]:
@@ -121,12 +125,26 @@ class WebsiteCollector:
                     if "text/html" in content_type.lower()
                     else None
                 )
+                tls_days_remaining: int | None = None
+                parsed_url = urlparse(current_url)
+                if parsed_url.scheme == "https" and parsed_url.hostname:
+                    try:
+                        tls_days_remaining = self._tls_probe(
+                            parsed_url.hostname,
+                            hop_ips[0],
+                            parsed_url.port or 443,
+                            target.timeout_seconds,
+                        )
+                    except (OSError, ValueError) as exc:
+                        errors.append(f"TLS inspection failed: {exc}")
+
                 return ObservationSet(
                     http_status=response.status_code,
                     final_url=str(response.url),
                     redirect_count=len(redirect_chain),
                     redirect_chain=redirect_chain,
                     response_ms=elapsed_ms,
+                    tls_days_remaining=tls_days_remaining,
                     page_title=page_title,
                     resolved_ips=resolved_ips,
                     errors=errors,
