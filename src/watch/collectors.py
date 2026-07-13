@@ -40,7 +40,7 @@ class _TitleParser(HTMLParser):
 
 def resolve_hostname(hostname: str) -> list[str]:
     records = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
-    return sorted({record[4][0] for record in records})
+    return sorted({str(record[4][0]) for record in records})
 
 
 def extract_title(html: str) -> str | None:
