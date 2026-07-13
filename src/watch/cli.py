@@ -6,6 +6,7 @@ from typing import Annotated
 
 import typer
 
+from watch.collectors import WebsiteCollector
 from watch.models import ObservationSet, Target
 from watch.workflow import execute_supplied_observations
 
@@ -14,7 +15,10 @@ app = typer.Typer(no_args_is_help=True, help="WATCH automation-control workbench
 
 @app.command()
 def demo(
-    workspace: Annotated[Path, typer.Option(help="Directory for generated run, action, and report evidence.")] = Path(".watch-data"),
+    workspace: Annotated[
+        Path,
+        typer.Option(help="Directory for generated run, action, and report evidence."),
+    ] = Path(".watch-data"),
 ) -> None:
     sample_path = Path("samples/demo-input.json")
     if not sample_path.exists():
@@ -22,11 +26,49 @@ def demo(
     payload = json.loads(sample_path.read_text(encoding="utf-8"))
     target = Target.model_validate(payload["target"])
     observations = ObservationSet.model_validate(payload["observations"])
-    run, actions, reports = execute_supplied_observations(target=target, observations=observations, workspace=workspace)
+    run, actions, reports = execute_supplied_observations(
+        target=target,
+        observations=observations,
+        workspace=workspace,
+    )
     typer.echo("WATCH DEMO PASS")
     typer.echo(f"Run: {run.run_id}")
     typer.echo(f"Status: {run.status.value}")
     typer.echo(f"Findings: {len(run.findings)}")
+    typer.echo(f"Actions returned: {len(actions)}")
+    for report in reports:
+        typer.echo(f"Report: {report}")
+
+
+@app.command()
+def collect(
+    url: Annotated[str, typer.Argument(help="Explicit public HTTP or HTTPS target.")],
+    workspace: Annotated[
+        Path,
+        typer.Option(help="Directory for generated run, action, and report evidence."),
+    ] = Path(".watch-data"),
+    timeout_seconds: Annotated[
+        int,
+        typer.Option(min=1, max=60, help="Per-target timeout in seconds."),
+    ] = 10,
+) -> None:
+    target = Target(
+        target_id="cli-target",
+        name="CLI target",
+        url=url,
+        timeout_seconds=timeout_seconds,
+    )
+    observations = WebsiteCollector().collect(target)
+    run, actions, reports = execute_supplied_observations(
+        target=target,
+        observations=observations,
+        workspace=workspace,
+    )
+    typer.echo("WATCH COLLECTION COMPLETE")
+    typer.echo(f"Run: {run.run_id}")
+    typer.echo(f"Status: {run.status.value}")
+    typer.echo(f"HTTP status: {observations.http_status}")
+    typer.echo(f"Errors: {len(observations.errors)}")
     typer.echo(f"Actions returned: {len(actions)}")
     for report in reports:
         typer.echo(f"Report: {report}")
