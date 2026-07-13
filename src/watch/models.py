@@ -48,9 +48,11 @@ class ObservationSet(BaseModel):
     http_status: int | None = Field(default=None, ge=100, le=599)
     final_url: str | None = None
     redirect_count: int | None = Field(default=None, ge=0)
+    redirect_chain: list[str] = Field(default_factory=list)
     response_ms: int | None = Field(default=None, ge=0)
     tls_days_remaining: int | None = None
     page_title: str | None = None
+    resolved_ips: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 
 
