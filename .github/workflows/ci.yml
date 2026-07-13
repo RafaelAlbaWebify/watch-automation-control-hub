@@ -1,0 +1,66 @@
+name: WATCH CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Type check
+        run: python -m mypy src
+
+      - name: Tests
+        run: |
+          mkdir -p artifacts
+          python -m pytest --junitxml=artifacts/test-results.xml
+
+      - name: Demo proof
+        run: python -m watch.cli demo --workspace artifacts/demo
+
+      - name: Verification summary
+        if: always()
+        run: |
+          mkdir -p artifacts
+          {
+            echo "# WATCH verification"
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Workflow: $GITHUB_WORKFLOW"
+            echo "- Run: $GITHUB_RUN_ID"
+            echo "- Result: ${{ job.status }}"
+          } > artifacts/verification-summary.md
+
+      - name: Upload proof artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-proof-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
