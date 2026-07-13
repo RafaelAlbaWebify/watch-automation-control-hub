@@ -41,6 +41,10 @@ class JsonStore:
             runs = [run for run in runs if run.target_id == target_id]
         return sorted(runs, key=lambda run: run.started_at)
 
+    def get_run(self, run_id: str) -> WorkflowRun | None:
+        path = self.runs_dir / f"{run_id}.json"
+        return self._read(path, WorkflowRun) if path.is_file() else None
+
     def latest_run(self, target_id: str) -> WorkflowRun | None:
         runs = self.list_runs(target_id)
         return runs[-1] if runs else None
@@ -51,7 +55,10 @@ class JsonStore:
         return path
 
     def list_actions(self) -> list[OperationalAction]:
-        actions = [self._read(path, OperationalAction) for path in self.actions_dir.glob("*.json")]
+        actions = [
+            self._read(path, OperationalAction)
+            for path in self.actions_dir.glob("*.json")
+        ]
         return sorted(actions, key=lambda action: action.created_at)
 
     def find_open_action(self, fingerprint: str) -> OperationalAction | None:
@@ -60,7 +67,12 @@ class JsonStore:
                 return action
         return None
 
+    def read_markdown_report(self, run_id: str) -> str | None:
+        path = self.reports_dir / f"{run_id}.md"
+        return path.read_text(encoding="utf-8") if path.is_file() else None
+
     def save_json_report(self, run: WorkflowRun) -> Path:
         path = self.reports_dir / f"{run.run_id}.json"
-        path.write_text(json.dumps(run.model_dump(mode="json"), indent=2), encoding="utf-8")
+        payload = json.dumps(run.model_dump(mode="json"), indent=2)
+        path.write_text(payload, encoding="utf-8")
         return path
