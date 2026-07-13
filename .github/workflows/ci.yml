@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  linux-verification:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -48,7 +48,7 @@ jobs:
         run: |
           mkdir -p artifacts
           {
-            echo "# WATCH verification"
+            echo "# WATCH Linux verification"
             echo
             echo "- Commit: $GITHUB_SHA"
             echo "- Workflow: $GITHUB_WORKFLOW"
@@ -56,11 +56,65 @@ jobs:
             echo "- Result: ${{ job.status }}"
           } > artifacts/verification-summary.md
 
-      - name: Upload proof artifact
+      - name: Upload Linux proof artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: watch-proof-${{ github.run_number }}
+          name: watch-linux-proof-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-operator-workflow:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Run WATCH verification
+        shell: pwsh
+        run: .\WATCH.ps1 verify
+
+      - name: Run WATCH demo
+        shell: pwsh
+        run: .\WATCH.ps1 demo
+
+      - name: Export review package
+        shell: pwsh
+        run: .\WATCH.ps1 export
+
+      - name: Collect Windows proof
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          if (Test-Path .watch-data) {
+            Copy-Item .watch-data -Destination artifacts\demo -Recurse -Force
+          }
+          Get-ChildItem $HOME\Downloads\WATCH_REVIEW_*.zip -ErrorAction SilentlyContinue |
+            Copy-Item -Destination artifacts -Force
+          @"
+          # WATCH Windows operator verification
+
+          - Commit: $env:GITHUB_SHA
+          - Workflow: $env:GITHUB_WORKFLOW
+          - Run: $env:GITHUB_RUN_ID
+          - Result: ${{ job.status }}
+          "@ | Set-Content artifacts\verification-summary.md -Encoding UTF8
+
+      - name: Upload Windows proof artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-windows-proof-${{ github.run_number }}
           path: artifacts/
           if-no-files-found: error
           retention-days: 30
