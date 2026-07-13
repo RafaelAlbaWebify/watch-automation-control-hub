@@ -52,7 +52,11 @@ def extract_title(html: str) -> str | None:
 def validate_public_ips(addresses: list[str]) -> None:
     if not addresses:
         raise ValueError("hostname did not resolve to any address")
-    blocked = [address for address in addresses if not ipaddress.ip_address(address).is_global]
+    blocked = [
+        address
+        for address in addresses
+        if not ipaddress.ip_address(address).is_global
+    ]
     if blocked:
         raise ValueError(f"non-public address blocked: {', '.join(blocked)}")
 
