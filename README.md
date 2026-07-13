@@ -31,6 +31,7 @@ explicit public target
   -> action creation or reuse
   -> immutable run history
   -> Markdown and JSON reports
+  -> read-only operator API
 ```
 
 Collected evidence includes:
@@ -79,6 +80,31 @@ Generated evidence is stored below `.watch-data`:
 └── reports/
 ```
 
+## Run the read-only operator API
+
+```powershell
+.\WATCH.ps1 api
+```
+
+The default local endpoints are:
+
+- API health: `http://127.0.0.1:8000/api/health`
+- interactive OpenAPI documentation: `http://127.0.0.1:8000/docs`
+- run history: `http://127.0.0.1:8000/api/runs`
+- action history: `http://127.0.0.1:8000/api/actions`
+
+The first API slice is deliberately read-only:
+
+```text
+GET /api/health
+GET /api/runs
+GET /api/runs/{run_id}
+GET /api/actions
+GET /api/reports/{run_id}.md
+```
+
+The API reads one configured workspace. Request parameters cannot select arbitrary filesystem paths. No collection, scheduling, acknowledgement, resolution, or external-write endpoint is currently exposed.
+
 ## Automated proof
 
 Every pull request runs:
@@ -87,6 +113,7 @@ Every pull request runs:
 - strict mypy checks;
 - pytest with coverage;
 - deterministic demo generation;
+- FastAPI contract and OpenAPI tests;
 - Windows operator verification;
 - Windows review ZIP export;
 - Linux and Windows proof-artifact upload.
@@ -104,6 +131,7 @@ Current controls include:
 - a five-redirect limit;
 - explicit 1–60 second timeouts;
 - normal TLS certificate and hostname verification;
+- API workspace configured at startup rather than supplied by requests;
 - no authentication, form submission, crawling, credential storage, or external modification.
 
 Known limitation: the HTTP library performs its own DNS resolution after validation, so transport-level HTTP address pinning remains tracked in Issue #11. TLS inspection is already pinned to a validated address.
@@ -113,10 +141,10 @@ See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md]
 ## Repository layout
 
 ```text
-src/watch/           domain, workflow, collectors, storage, reports, and CLI
+src/watch/           domain, workflow, collectors, storage, reports, CLI, and API
 tests/               automated proof
 samples/             public-safe sample inputs
-scripts/             setup, verification, demo, and review export
+scripts/             setup, verification, demo, API, and review export
 docs/                architecture, roadmap, safety, and milestone evidence
 .github/workflows/   Linux and Windows GitHub verification
 .watch-data/         generated local state, ignored by Git
@@ -124,4 +152,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next practical milestone is an operator API for target inventory, workflow execution, run history, reports, and action acknowledgement. Transport-level HTTP address pinning remains a security-hardening prerequisite before broader scheduling or multi-target execution.
+The next operator slice will add controlled action acknowledgement and resolution, then target inventory and workflow execution. Transport-level HTTP address pinning remains a security-hardening prerequisite before broader scheduling or multi-target execution.
