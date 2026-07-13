@@ -52,11 +52,13 @@ def collect(
         typer.Option(min=1, max=60, help="Per-target timeout in seconds."),
     ] = 10,
 ) -> None:
-    target = Target(
-        target_id="cli-target",
-        name="CLI target",
-        url=url,
-        timeout_seconds=timeout_seconds,
+    target = Target.model_validate(
+        {
+            "target_id": "cli-target",
+            "name": "CLI target",
+            "url": url,
+            "timeout_seconds": timeout_seconds,
+        }
     )
     observations = WebsiteCollector().collect(target)
     run, actions, reports = execute_supplied_observations(
