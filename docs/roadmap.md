@@ -34,13 +34,16 @@
 
 ## M2 — Operator API
 
-- [ ] FastAPI health endpoint
+- [x] FastAPI health endpoint
+- [x] Run history list and detail endpoints
+- [x] Action history endpoint
+- [x] Markdown report retrieval endpoint
+- [x] OpenAPI contract tests
+- [x] Explicit startup workspace configuration
+- [x] Windows operator API launch command
 - [ ] Target inventory endpoints
 - [ ] Workflow execution endpoint
-- [ ] Run history endpoints
 - [ ] Action acknowledgement and resolution endpoints
-- [ ] Report retrieval endpoints
-- [ ] OpenAPI contract tests
 
 ## M3 — Recurring execution
 
