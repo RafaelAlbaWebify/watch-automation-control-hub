@@ -29,16 +29,27 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
+      - name: Prepare proof directory
+        run: mkdir -p artifacts
+
       - name: Lint
-        run: python -m ruff check .
+        shell: bash
+        run: |
+          set +e
+          python -m ruff check . --output-format=concise 2>&1 | tee artifacts/ruff.txt
+          status=${PIPESTATUS[0]}
+          exit $status
 
       - name: Type check
-        run: python -m mypy src
+        shell: bash
+        run: |
+          set +e
+          python -m mypy src 2>&1 | tee artifacts/mypy.txt
+          status=${PIPESTATUS[0]}
+          exit $status
 
       - name: Tests
-        run: |
-          mkdir -p artifacts
-          python -m pytest --junitxml=artifacts/test-results.xml
+        run: python -m pytest --junitxml=artifacts/test-results.xml
 
       - name: Demo proof
         run: python -m watch.cli demo --workspace artifacts/demo
@@ -46,7 +57,6 @@ jobs:
       - name: Verification summary
         if: always()
         run: |
-          mkdir -p artifacts
           {
             echo "# WATCH Linux verification"
             echo
