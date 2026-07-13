@@ -15,14 +15,22 @@
 
 ## M1 — Website operational health collector
 
-- [ ] HTTP status and final URL
-- [ ] Redirect chain
-- [ ] Response duration
-- [ ] TLS certificate expiry
-- [ ] Page title and metadata
-- [ ] Basic DNS resolution
-- [ ] Mocked collector tests
-- [ ] Safe live-demo mode with timeouts and rate limits
+- [x] HTTP status and final URL
+- [x] Redirect chain
+- [x] Response duration
+- [x] TLS certificate expiry
+- [x] Page title extraction
+- [x] Basic DNS resolution
+- [x] Public-address validation for each redirect hop
+- [x] Mocked collector and safety tests
+- [x] Safe single-target live CLI with bounded timeouts and redirects
+- [x] Linux and Windows proof artifacts
+
+### M1 hardening still open
+
+- [ ] Pin the HTTP transport to the address already validated by WATCH
+- [ ] Capture selected response headers and content metadata
+- [ ] Add a sanitized committed example of a live-generated report
 
 ## M2 — Operator API
 
@@ -31,6 +39,7 @@
 - [ ] Workflow execution endpoint
 - [ ] Run history endpoints
 - [ ] Action acknowledgement and resolution endpoints
+- [ ] Report retrieval endpoints
 - [ ] OpenAPI contract tests
 
 ## M3 — Recurring execution
@@ -40,6 +49,7 @@
 - [ ] Idempotent execution keys
 - [ ] Retry and timeout policy
 - [ ] Missed-run visibility
+- [ ] Scheduled proof package
 
 ## M4 — Operator interface
 
