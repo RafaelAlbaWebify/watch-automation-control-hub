@@ -1,0 +1,29 @@
+name: Feature
+description: Propose a bounded WATCH capability
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Operational problem
+      description: Describe the real workflow problem, not only the desired UI.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: User-visible outcome
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Automatic proof
+      description: Explain how tests or generated evidence will prove the feature.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Safety and operational risks
