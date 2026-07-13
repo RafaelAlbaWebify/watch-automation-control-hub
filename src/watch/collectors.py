@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+from collections.abc import Callable
 from html.parser import HTMLParser
 from time import perf_counter
-from typing import Callable
 from urllib.parse import urljoin, urlparse
 
 import httpx
