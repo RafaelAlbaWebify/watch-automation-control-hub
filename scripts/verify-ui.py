@@ -10,6 +10,11 @@ def _assert_text(page: Page, text: str) -> None:
     page.get_by_text(text, exact=False).first.wait_for(state="visible")
 
 
+def _assert_badge(page: Page, text: str, tone: str) -> None:
+    locator = page.locator(f".badge-{tone}", has_text=text).first
+    locator.wait_for(state="visible")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Verify the WATCH operator UI.")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
@@ -49,7 +54,8 @@ def main() -> None:
                 == "page"
             )
             _assert_text(page, "Target drill-down")
-            _assert_text(page, "Changes")
+            _assert_text(page, "Five most recent workflow runs")
+            _assert_badge(page, "completed", "success")
             page.screenshot(path=screenshots / "dashboard.png", full_page=True)
 
             page.get_by_role("link", name="Targets").click()
@@ -57,51 +63,65 @@ def main() -> None:
                 page.get_by_role("link", name="Targets").get_attribute("aria-current")
                 == "page"
             )
+            _assert_text(page, "Registered operational targets")
             _assert_text(page, "Healthy public demo")
             _assert_text(page, "Degraded public demo")
             _assert_text(page, "Disabled public demo")
+            _assert_badge(page, "enabled", "success")
+            _assert_badge(page, "disabled", "danger")
             page.get_by_role("link", name="Degraded public demo").click()
             page.get_by_label("Target summary").wait_for(state="visible")
             assert (
                 page.get_by_role("link", name="Targets").get_attribute("aria-current")
                 == "page"
             )
+            _assert_text(page, "Target configuration")
+            _assert_text(page, "Schedules linked to this target")
+            _assert_text(page, "Run and change history for this target")
+            _assert_text(page, "Operational actions for this target")
             _assert_text(page, "degraded-hourly")
-            _assert_text(page, "Run and change history")
             _assert_text(page, "http_status")
             _assert_text(page, "UNEXPECTED_HTTP_STATUS")
+            _assert_badge(page, "open", "danger")
             page.screenshot(path=screenshots / "target-detail.png", full_page=True)
 
             page.get_by_role("link", name="Schedules").click()
+            _assert_text(page, "Configured recurring schedules")
             _assert_text(page, "healthy-hourly")
             _assert_text(page, "degraded-hourly")
             page.screenshot(path=screenshots / "schedules.png", full_page=True)
 
             page.get_by_role("link", name="Occurrences").click()
+            _assert_text(page, "Persisted schedule occurrences")
             _assert_text(page, "degraded-hourly")
-            _assert_text(page, "executing")
+            _assert_badge(page, "executing", "warning")
             page.screenshot(path=screenshots / "occurrences.png", full_page=True)
 
             page.get_by_role("link", name="Attention").click()
-            _assert_text(page, "missed-unclaimed")
-            _assert_text(page, "executing-stale")
+            _assert_text(page, "Missed and stale occurrence attention")
+            _assert_badge(page, "missed-unclaimed", "warning")
+            _assert_badge(page, "executing-stale", "warning")
             page.screenshot(path=screenshots / "attention.png", full_page=True)
 
             page.get_by_role("link", name="Runs").click()
+            _assert_text(page, "Immutable workflow run history")
             _assert_text(page, "healthy-demo")
             _assert_text(page, "degraded-demo")
             page.screenshot(path=screenshots / "runs.png", full_page=True)
 
             page.get_by_role("link", name="Changes").click()
             _assert_text(page, "Change timeline")
+            _assert_text(page, "Chronological target change evidence")
             _assert_text(page, "baseline evidence")
             _assert_text(page, "http_status")
             page.screenshot(path=screenshots / "changes.png", full_page=True)
 
             page.get_by_role("link", name="Actions").click()
+            _assert_text(page, "Operational action history")
             _assert_text(page, "UNEXPECTED_HTTP_STATUS")
             _assert_text(page, "SLOW_RESPONSE")
             _assert_text(page, "TLS_EXPIRY_APPROACHING")
+            _assert_badge(page, "open", "danger")
             page.screenshot(path=screenshots / "actions.png", full_page=True)
 
             page.get_by_role("link", name="Runs").click()
