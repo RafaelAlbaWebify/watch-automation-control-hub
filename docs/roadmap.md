@@ -145,8 +145,9 @@
 - [x] Primary navigation and main-content landmarks
 - [x] Keyboard-visible skip link and focus styling
 - [x] Keyboard-focused Playwright proof
-- [ ] Apply severity and status visual hierarchy to every evidence table
-- [ ] Add accessible captions to every evidence table
+- [x] Apply severity and status visual hierarchy to every evidence table
+- [x] Add accessible captions to every evidence table
+- [x] Remove the unused duplicate change-timeline module
 
 ## Deferred
 
