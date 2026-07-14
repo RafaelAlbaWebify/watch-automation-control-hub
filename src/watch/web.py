@@ -15,17 +15,46 @@ body { margin: 0; background: #101418; color: #edf2f7; }
 header { padding: 1.25rem 2rem; border-bottom: 1px solid #2d3748; }
 nav a { color: #90cdf4; margin-right: 1rem; text-decoration: none; }
 main { padding: 2rem; max-width: 1200px; margin: 0 auto; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
-.card { background: #1a202c; border: 1px solid #2d3748; border-radius: 10px; padding: 1rem; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.card {
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  border-radius: 10px;
+  padding: 1rem;
+}
 .metric { font-size: 2rem; font-weight: 700; margin: .25rem 0; }
 table { width: 100%; border-collapse: collapse; background: #1a202c; }
-th, td { padding: .75rem; border-bottom: 1px solid #2d3748; text-align: left; vertical-align: top; }
+th, td {
+  padding: .75rem;
+  border-bottom: 1px solid #2d3748;
+  text-align: left;
+  vertical-align: top;
+}
 th { color: #a0aec0; }
-.badge { display: inline-block; padding: .15rem .5rem; border-radius: 999px; background: #2d3748; }
+.badge {
+  display: inline-block;
+  padding: .15rem .5rem;
+  border-radius: 999px;
+  background: #2d3748;
+}
 .empty { color: #a0aec0; font-style: italic; }
-pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #1a202c; padding: 1rem; border-radius: 10px; }
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #1a202c;
+  padding: 1rem;
+  border-radius: 10px;
+}
 a { color: #90cdf4; }
 """
+_RUN_HEADER = (
+    "<table><thead><tr><th>Run</th><th>Target</th><th>Status</th>"
+    "<th>Findings</th><th>Changes</th><th>Report</th></tr></thead><tbody>"
+)
 
 
 def _page(title: str, body: str) -> HTMLResponse:
@@ -66,12 +95,13 @@ def _target_rows(targets: list[Target], runs: list[WorkflowRun]) -> str:
     for target in targets:
         latest = latest_by_target.get(target.target_id)
         latest_status = latest.status.value if latest else "never run"
+        state = "enabled" if target.enabled else "disabled"
         rows.append(
             "<tr>"
             f"<td>{escape(target.name)}</td>"
             f"<td><code>{escape(target.target_id)}</code></td>"
             f"<td>{escape(str(target.url))}</td>"
-            f"<td><span class=\"badge\">{'enabled' if target.enabled else 'disabled'}</span></td>"
+            f"<td><span class=\"badge\">{state}</span></td>"
             f"<td>{escape(latest_status)}</td>"
             "</tr>"
         )
@@ -81,13 +111,14 @@ def _target_rows(targets: list[Target], runs: list[WorkflowRun]) -> str:
 def _run_rows(runs: list[WorkflowRun]) -> str:
     rows = []
     for run in reversed(runs):
+        changes = ", ".join(run.changed_fields) or "none"
         rows.append(
             "<tr>"
             f"<td><code>{escape(run.run_id)}</code></td>"
             f"<td>{escape(run.target_id)}</td>"
             f"<td><span class=\"badge\">{escape(run.status.value)}</span></td>"
             f"<td>{len(run.findings)}</td>"
-            f"<td>{escape(', '.join(run.changed_fields) or 'none')}</td>"
+            f"<td>{escape(changes)}</td>"
             f"<td><a href=\"/reports/{escape(run.run_id)}\">Open report</a></td>"
             "</tr>"
         )
@@ -122,16 +153,25 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
         open_actions = sum(action.status == ActionStatus.OPEN for action in actions)
         acknowledged = sum(action.status == ActionStatus.ACKNOWLEDGED for action in actions)
         latest = runs[-1].status.value if runs else "no runs"
+        latest_runs = (
+            _RUN_HEADER + _run_rows(runs[-5:]) + "</tbody></table>"
+            if runs
+            else '<p class="empty">No runs have been recorded.</p>'
+        )
         body = f"""
 <section class="grid" aria-label="Operational summary">
-  <article class="card"><h3>Targets</h3><p class="metric">{len(targets)}</p><p>{enabled} enabled</p></article>
-  <article class="card"><h3>Runs</h3><p class="metric">{len(runs)}</p><p>Latest: {escape(latest)}</p></article>
-  <article class="card"><h3>Open actions</h3><p class="metric">{open_actions}</p><p>{acknowledged} acknowledged</p></article>
+  <article class="card">
+    <h3>Targets</h3><p class="metric">{len(targets)}</p><p>{enabled} enabled</p>
+  </article>
+  <article class="card">
+    <h3>Runs</h3><p class="metric">{len(runs)}</p><p>Latest: {escape(latest)}</p>
+  </article>
+  <article class="card">
+    <h3>Open actions</h3><p class="metric">{open_actions}</p>
+    <p>{acknowledged} acknowledged</p>
+  </article>
 </section>
-<section>
-  <h3>Latest runs</h3>
-  {('<table><thead><tr><th>Run</th><th>Target</th><th>Status</th><th>Findings</th><th>Changes</th><th>Report</th></tr></thead><tbody>' + _run_rows(runs[-5:]) + '</tbody></table>') if runs else '<p class="empty">No runs have been recorded.</p>'}
-</section>
+<section><h3>Latest runs</h3>{latest_runs}</section>
 """
         return _page("Operator dashboard", body)
 
@@ -139,10 +179,12 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     def targets_page() -> HTMLResponse:
         targets = store.list_targets()
         runs = store.list_runs()
+        header = (
+            "<table><thead><tr><th>Name</th><th>ID</th><th>URL</th>"
+            "<th>State</th><th>Latest run</th></tr></thead><tbody>"
+        )
         body = (
-            '<table><thead><tr><th>Name</th><th>ID</th><th>URL</th><th>State</th><th>Latest run</th></tr></thead><tbody>'
-            + _target_rows(targets, runs)
-            + "</tbody></table>"
+            header + _target_rows(targets, runs) + "</tbody></table>"
             if targets
             else '<p class="empty">No targets are registered.</p>'
         )
@@ -152,9 +194,7 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     def runs_page() -> HTMLResponse:
         runs = store.list_runs()
         body = (
-            '<table><thead><tr><th>Run</th><th>Target</th><th>Status</th><th>Findings</th><th>Changes</th><th>Report</th></tr></thead><tbody>'
-            + _run_rows(runs)
-            + "</tbody></table>"
+            _RUN_HEADER + _run_rows(runs) + "</tbody></table>"
             if runs
             else '<p class="empty">No runs have been recorded.</p>'
         )
@@ -163,10 +203,12 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     @app.get("/actions", response_class=HTMLResponse, include_in_schema=False)
     def actions_page() -> HTMLResponse:
         actions = store.list_actions()
+        header = (
+            "<table><thead><tr><th>Severity</th><th>Status</th><th>Target</th>"
+            "<th>Code</th><th>Summary</th><th>Source run</th></tr></thead><tbody>"
+        )
         body = (
-            '<table><thead><tr><th>Severity</th><th>Status</th><th>Target</th><th>Code</th><th>Summary</th><th>Source run</th></tr></thead><tbody>'
-            + _action_rows(actions)
-            + "</tbody></table>"
+            header + _action_rows(actions) + "</tbody></table>"
             if actions
             else '<p class="empty">No operational actions are pending.</p>'
         )
