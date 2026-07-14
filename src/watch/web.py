@@ -102,6 +102,7 @@ def _action_rows(actions: list[OperationalAction]) -> str:
             f"<td>{escape(action.severity.value)}</td>"
             f"<td><span class=\"badge\">{escape(action.status.value)}</span></td>"
             f"<td>{escape(action.target_id)}</td>"
+            f"<td><code>{escape(action.finding_code)}</code></td>"
             f"<td>{escape(action.summary)}</td>"
             f"<td><code>{escape(action.source_run_id)}</code></td>"
             "</tr>"
@@ -163,7 +164,7 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     def actions_page() -> HTMLResponse:
         actions = store.list_actions()
         body = (
-            '<table><thead><tr><th>Severity</th><th>Status</th><th>Target</th><th>Summary</th><th>Source run</th></tr></thead><tbody>'
+            '<table><thead><tr><th>Severity</th><th>Status</th><th>Target</th><th>Code</th><th>Summary</th><th>Source run</th></tr></thead><tbody>'
             + _action_rows(actions)
             + "</tbody></table>"
             if actions
