@@ -28,7 +28,7 @@ dev = [
 
 [project.scripts]
 watch = "watch.cli:app"
-watch-api = "watch.api:main"
+watch-api = "watch.webapp:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/watch"]
