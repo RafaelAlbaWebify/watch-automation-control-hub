@@ -55,6 +55,7 @@ def main() -> None:
             )
             _assert_text(page, "Target drill-down")
             _assert_text(page, "Five most recent workflow runs")
+            _assert_text(page, "Retry attempts")
             _assert_badge(page, "completed", "success")
             page.screenshot(path=screenshots / "dashboard.png", full_page=True)
 
@@ -102,6 +103,18 @@ def main() -> None:
             _assert_badge(page, "missed-unclaimed", "warning")
             _assert_badge(page, "executing-stale", "warning")
             page.screenshot(path=screenshots / "attention.png", full_page=True)
+
+            page.get_by_role("link", name="Attempts").click()
+            assert (
+                page.get_by_role("link", name="Attempts").get_attribute("aria-current")
+                == "page"
+            )
+            _assert_text(page, "Operator-controlled retry attempt history")
+            _assert_text(page, "Operator confirmed the upstream dependency had recovered")
+            _assert_text(page, "Operator requested a second controlled validation")
+            _assert_badge(page, "completed", "success")
+            _assert_badge(page, "failed", "danger")
+            page.screenshot(path=screenshots / "attempts.png", full_page=True)
 
             page.get_by_role("link", name="Runs").click()
             _assert_text(page, "Immutable workflow run history")
