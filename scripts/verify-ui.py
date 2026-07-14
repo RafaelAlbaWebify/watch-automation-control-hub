@@ -37,6 +37,8 @@ def main() -> None:
             page.goto(args.base_url, wait_until="networkidle")
             _assert_text(page, "Operator dashboard")
             _assert_text(page, "2 enabled")
+            _assert_text(page, "Schedules")
+            _assert_text(page, "Occurrences")
             _assert_text(page, "Open actions")
             page.screenshot(path=screenshots / "dashboard.png", full_page=True)
 
@@ -45,6 +47,22 @@ def main() -> None:
             _assert_text(page, "Degraded public demo")
             _assert_text(page, "Disabled public demo")
             page.screenshot(path=screenshots / "targets.png", full_page=True)
+
+            page.get_by_role("link", name="Schedules").click()
+            _assert_text(page, "healthy-hourly")
+            _assert_text(page, "degraded-hourly")
+            _assert_text(page, "60 minutes")
+            page.screenshot(path=screenshots / "schedules.png", full_page=True)
+
+            page.get_by_role("link", name="Occurrences").click()
+            _assert_text(page, "degraded-hourly")
+            _assert_text(page, "executing")
+            page.screenshot(path=screenshots / "occurrences.png", full_page=True)
+
+            page.get_by_role("link", name="Attention").click()
+            _assert_text(page, "missed-unclaimed")
+            _assert_text(page, "executing-stale")
+            page.screenshot(path=screenshots / "attention.png", full_page=True)
 
             page.get_by_role("link", name="Runs").click()
             _assert_text(page, "healthy-demo")
