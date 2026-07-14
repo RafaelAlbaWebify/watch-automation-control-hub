@@ -85,6 +85,11 @@ def mount_target_detail_routes(app: FastAPI, workspace: Path) -> None:
             f"<tr><th>Latest run</th><td>{badge(latest)}</td></tr>"
             "</tbody>"
         )
+        configuration_table = table(
+            configuration,
+            "Target configuration",
+            compact=True,
+        )
         summary = f"""
 <section class="grid" aria-label="Target summary">
   <article class="card"><h3>State</h3><p class="metric">{badge(state)}</p></article>
@@ -92,7 +97,7 @@ def mount_target_detail_routes(app: FastAPI, workspace: Path) -> None:
   <article class="card"><h3>Runs</h3><p class="metric">{len(runs)}</p></article>
   <article class="card"><h3>Actions</h3><p class="metric">{len(actions)}</p></article>
 </section>
-<section><h3>Configuration</h3>{table(configuration, "Target configuration", compact=True)}</section>
+<section><h3>Configuration</h3>{configuration_table}</section>
 """
         schedule_content = (
             "<thead><tr><th>Schedule</th><th>State</th><th>Starts</th>"
