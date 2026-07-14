@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from watch.models import (
     IntervalSchedule,
     OperationalAction,
+    RetryAttempt,
     ScheduleOccurrence,
     Target,
     WorkflowRun,
@@ -24,6 +25,7 @@ class JsonStore:
         self.schedules_dir = workspace / "schedules"
         self.occurrences_dir = workspace / "occurrences"
         self.occurrence_locks_dir = workspace / "occurrence-locks"
+        self.retry_attempts_dir = workspace / "retry-attempts"
         self.runs_dir = workspace / "runs"
         self.actions_dir = workspace / "actions"
         self.reports_dir = workspace / "reports"
@@ -32,6 +34,7 @@ class JsonStore:
             self.schedules_dir,
             self.occurrences_dir,
             self.occurrence_locks_dir,
+            self.retry_attempts_dir,
             self.runs_dir,
             self.actions_dir,
             self.reports_dir,
@@ -132,6 +135,36 @@ class JsonStore:
         return sorted(
             occurrences,
             key=lambda occurrence: (occurrence.occurrence_at, occurrence.execution_key),
+        )
+
+    def create_retry_attempt(self, attempt: RetryAttempt) -> Path:
+        path = self.retry_attempts_dir / f"{attempt.attempt_id}.json"
+        self._create_exclusive(path, attempt)
+        return path
+
+    def update_retry_attempt(self, attempt: RetryAttempt) -> Path:
+        path = self.retry_attempts_dir / f"{attempt.attempt_id}.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"retry attempt not found: {attempt.attempt_id}")
+        self._write(path, attempt)
+        return path
+
+    def get_retry_attempt(self, attempt_id: str) -> RetryAttempt | None:
+        path = self.retry_attempts_dir / f"{attempt_id}.json"
+        return self._read(path, RetryAttempt) if path.is_file() else None
+
+    def list_retry_attempts(self, execution_key: str | None = None) -> list[RetryAttempt]:
+        attempts = [
+            self._read(path, RetryAttempt)
+            for path in self.retry_attempts_dir.glob("*.json")
+        ]
+        if execution_key is not None:
+            attempts = [
+                attempt for attempt in attempts if attempt.execution_key == execution_key
+            ]
+        return sorted(
+            attempts,
+            key=lambda attempt: (attempt.execution_key, attempt.attempt_number),
         )
 
     def save_run(self, run: WorkflowRun) -> Path:
