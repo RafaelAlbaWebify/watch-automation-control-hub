@@ -61,11 +61,14 @@
 
 ### M3.2 — Due evaluation and idempotent claims
 
-- [ ] Deterministic occurrence calculation
-- [ ] Idempotent execution keys
-- [ ] Atomic occurrence claims
-- [ ] Restart-safe occurrence records
-- [ ] Disabled schedule and target guards
+- [x] Deterministic occurrence calculation
+- [x] Idempotent execution keys
+- [x] Atomic occurrence claims
+- [x] Restart-safe occurrence records
+- [x] Disabled schedule and target guards
+- [x] Occurrence list, detail, and evaluation API
+- [x] Claim-only safety proof with no collector invocation
+- [ ] Occurrence execution and result transitions
 - [ ] Missed-run visibility
 - [ ] Explicit bounded retry and timeout policy
 
@@ -81,6 +84,7 @@
 
 - [ ] Target inventory
 - [ ] Schedule inventory
+- [ ] Occurrence history
 - [ ] Run history
 - [ ] Change timeline
 - [ ] Pending actions
