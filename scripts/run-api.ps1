@@ -17,9 +17,9 @@ if (-not (Test-Path $Python)) {
 $ResolvedWorkspace = [System.IO.Path]::GetFullPath((Join-Path $Root $Workspace))
 $env:WATCH_WORKSPACE = $ResolvedWorkspace
 
-Write-Host "WATCH Operator API" -ForegroundColor Cyan
+Write-Host "WATCH Operator Workbench" -ForegroundColor Cyan
 Write-Host "Workspace: $ResolvedWorkspace"
-Write-Host "URL: http://${HostAddress}:$Port"
+Write-Host "Dashboard: http://${HostAddress}:$Port"
 Write-Host "OpenAPI: http://${HostAddress}:$Port/docs"
 
-& $Python -m uvicorn watch.api:app --host $HostAddress --port $Port
+& $Python -m uvicorn watch.webapp:app --host $HostAddress --port $Port
