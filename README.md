@@ -23,6 +23,8 @@ WATCH currently supports:
 ```text
 local target inventory
   -> persisted interval schedule definitions
+  -> deterministic due-occurrence calculation
+  -> atomic idempotent occurrence claims
   -> explicit single-target execution
   -> DNS resolution and public-address validation
   -> address-pinned HTTP request and redirect inspection
@@ -80,6 +82,7 @@ Generated evidence is stored below `.watch-data`:
 .watch-data/
 ├── targets/
 ├── schedules/
+├── occurrences/
 ├── runs/
 ├── actions/
 └── reports/
@@ -97,6 +100,7 @@ The default local endpoints are:
 - interactive OpenAPI documentation: `http://127.0.0.1:8000/docs`
 - target inventory: `http://127.0.0.1:8000/api/targets`
 - schedule configuration: `http://127.0.0.1:8000/api/schedules`
+- occurrence history: `http://127.0.0.1:8000/api/occurrences`
 - run history: `http://127.0.0.1:8000/api/runs`
 - action history: `http://127.0.0.1:8000/api/actions`
 
@@ -113,6 +117,9 @@ GET  /api/schedules
 GET  /api/schedules/{schedule_id}
 POST /api/schedules
 PUT  /api/schedules/{schedule_id}
+POST /api/schedules/{schedule_id}/occurrences/evaluate
+GET  /api/occurrences
+GET  /api/occurrences/{execution_key}
 GET  /api/runs
 GET  /api/runs/{run_id}
 GET  /api/actions
@@ -121,11 +128,15 @@ POST /api/actions/{action_id}/resolve
 GET  /api/reports/{run_id}.md
 ```
 
-Schedule definitions are configuration only. Each schedule links to one existing target, stores an enabled state, timezone-aware start time normalized to UTC, and an interval from 5 minutes to 7 days. Creating or updating a schedule does not invoke the collector, create a run, or install a background task.
+Schedule definitions link one immutable schedule ID to one existing target, store an enabled state, a timezone-aware start time normalized to UTC, and an interval from 5 minutes to 7 days.
 
-The execution endpoint remains explicit and operates on one enabled registered target per request. It persists the resulting run, findings, actions, history, and reports in the configured workspace.
+Occurrence evaluation requires an explicit timezone-aware timestamp. WATCH calculates the latest due boundary, derives a deterministic execution key, and uses exclusive local file creation to claim that occurrence once. Repeated evaluation returns the existing claim. Disabled schedules or targets and evaluations before the start time produce explicit no-claim results.
 
-The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, and action writes affect local WATCH state only.
+Occurrence claims remain separate from workflow runs. Evaluation does not invoke the collector, execute a target, retry work, or install a background task.
+
+The explicit execution endpoint continues to operate on one enabled registered target per request and persists the resulting run, findings, actions, history, and reports.
+
+The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, and action writes affect local WATCH state only.
 
 ## Automated proof
 
@@ -152,6 +163,10 @@ Current controls include:
 - schedule configuration without automatic execution;
 - immutable schedule IDs and target linkage;
 - UTC-normalized schedule start times and bounded intervals;
+- deterministic UTC occurrence boundaries and keys;
+- exclusive, restart-safe local occurrence claims;
+- disabled schedule and target claim guards;
+- claim evaluation with no collector or workflow-run side effects;
 - explicit one-target execution;
 - HTTP and HTTPS only through the validated target model;
 - disabled targets rejected before collection;
@@ -165,14 +180,14 @@ Current controls include:
 - normal TLS certificate and hostname verification;
 - API workspace configured at startup rather than supplied by requests;
 - controlled local-only action state transitions;
-- no authentication bypass, form submission, crawling, credential storage, due-time execution, retries, Task Scheduler installation, batch execution, or external modification.
+- no authentication bypass, form submission, crawling, credential storage, scheduled collection, retries, Task Scheduler installation, batch execution, or external modification.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
 ```text
-src/watch/           domain, targets, schedules, actions, workflow, collectors, storage, reports, CLI, and API
+src/watch/           domain, targets, schedules, occurrences, actions, workflow, collectors, storage, reports, CLI, and API
 tests/               automated proof
 samples/             public-safe sample inputs
 scripts/             setup, verification, demo, API, and review export
@@ -183,4 +198,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-M3.1 provides schedule configuration only. The next bounded slice is M3.2: deterministic due-time evaluation, persisted occurrence records, and atomic idempotent claims before any scheduled collection is allowed.
+M3.2 provides deterministic occurrence calculation and claims without execution. The next bounded slice is controlled occurrence execution and result transitions, followed by missed-run and retry policy before any Windows Task Scheduler installation.
