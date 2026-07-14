@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from enum import StrEnum
 from hashlib import sha256
@@ -101,24 +100,38 @@ class AttemptStore:
             for path in self.attempts_dir.glob("*.json")
         ]
         if execution_key is not None:
-            attempts = [item for item in attempts if item.execution_key == execution_key]
-        return sorted(attempts, key=lambda item: (item.execution_key, item.attempt_number))
+            attempts = [
+                item for item in attempts if item.execution_key == execution_key
+            ]
+        return sorted(
+            attempts,
+            key=lambda item: (item.execution_key, item.attempt_number),
+        )
 
     def get(self, attempt_id_value: str) -> ExecutionAttempt | None:
         path = self.attempts_dir / f"{attempt_id_value}.json"
         if not path.is_file():
             return None
-        return ExecutionAttempt.model_validate_json(path.read_text(encoding="utf-8"))
+        content = path.read_text(encoding="utf-8")
+        return ExecutionAttempt.model_validate_json(content)
 
 
 class BoundedRetryService:
-    def __init__(self, store: JsonStore, workspace: Path, collector: Collector) -> None:
+    def __init__(
+        self,
+        store: JsonStore,
+        workspace: Path,
+        collector: Collector,
+    ) -> None:
         self._store = store
         self._workspace = workspace
         self._collector = collector
         self._attempts = AttemptStore(workspace)
 
-    def list_attempts(self, execution_key: str | None = None) -> list[ExecutionAttempt]:
+    def list_attempts(
+        self,
+        execution_key: str | None = None,
+    ) -> list[ExecutionAttempt]:
         return self._attempts.list(execution_key)
 
     def _backfill_original_failure(self, occurrence: ScheduleOccurrence) -> None:
@@ -172,13 +185,12 @@ class BoundedRetryService:
                 f"attempt limit reached: maximum {MAX_ATTEMPTS}"
             )
 
-        started_at = datetime.now(UTC)
         attempt = ExecutionAttempt(
             attempt_id=attempt_id(occurrence.execution_key, next_number),
             execution_key=occurrence.execution_key,
             attempt_number=next_number,
             status=AttemptStatus.EXECUTING,
-            started_at=started_at,
+            started_at=datetime.now(UTC),
         )
         try:
             self._attempts.create(attempt)
