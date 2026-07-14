@@ -22,7 +22,9 @@ class JsonStore:
 
     @staticmethod
     def _write(path: Path, model: BaseModel) -> None:
-        path.write_text(model.model_dump_json(indent=2), encoding="utf-8")
+        temporary = path.with_suffix(f"{path.suffix}.tmp")
+        temporary.write_text(model.model_dump_json(indent=2), encoding="utf-8")
+        temporary.replace(path)
 
     @staticmethod
     def _read(path: Path, model_type: type[ModelT]) -> ModelT:
@@ -53,6 +55,10 @@ class JsonStore:
         path = self.actions_dir / f"{action.action_id}.json"
         self._write(path, action)
         return path
+
+    def get_action(self, action_id: str) -> OperationalAction | None:
+        path = self.actions_dir / f"{action_id}.json"
+        return self._read(path, OperationalAction) if path.is_file() else None
 
     def list_actions(self) -> list[OperationalAction]:
         actions = [
