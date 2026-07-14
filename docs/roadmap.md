@@ -104,8 +104,12 @@
 - [x] Deterministic latest-boundary classification per schedule
 - [x] Byte-for-byte read-only planning proof
 - [x] Collector non-invocation proof
-- [ ] One-shot bounded runner with explicit result summary
-- [ ] Dry-run and verification commands
+- [x] One-shot bounded runner with explicit result summary
+- [x] Deterministic 1–10 maximum-work selection
+- [x] Completed, partial, and failed result mapping
+- [x] Repeated-invocation no-recollection proof
+- [x] Machine-readable foreground CLI command
+- [ ] Dry-run and verification wrapper commands
 - [ ] One due-runner scheduled task
 - [ ] Installation and uninstall workflow
 - [ ] Rollback-safe local configuration
