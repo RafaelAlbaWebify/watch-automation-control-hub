@@ -5,8 +5,15 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
-from watch.models import IntervalSchedule, ObservationSet, OccurrenceStatus, Target
-from watch.occurrences import OccurrenceService
+from watch.attempts import AttemptStatus, AttemptStore, ExecutionAttempt, attempt_id
+from watch.models import (
+    IntervalSchedule,
+    ObservationSet,
+    OccurrenceStatus,
+    ScheduleOccurrence,
+    Target,
+)
+from watch.occurrences import OccurrenceService, execution_key
 from watch.schedules import ScheduleService
 from watch.storage import JsonStore
 from watch.targets import TargetService
@@ -113,6 +120,45 @@ def prepare(workspace: Path) -> None:
         }
     )
     store.update_occurrence(stale)
+
+    retry_at = datetime(2026, 1, 1, 2, 0, tzinfo=UTC)
+    retry_key = execution_key("degraded-hourly", retry_at)
+    recovered_occurrence = ScheduleOccurrence(
+        execution_key=retry_key,
+        schedule_id="degraded-hourly",
+        target_id=degraded.target_id,
+        occurrence_at=retry_at,
+        claimed_at=datetime(2026, 1, 1, 2, 1, tzinfo=UTC),
+        status=OccurrenceStatus.COMPLETED,
+        execution_started_at=datetime(2026, 1, 1, 2, 2, tzinfo=UTC),
+        finished_at=datetime(2026, 1, 1, 2, 8, tzinfo=UTC),
+        run_id=changed_run.run_id,
+    )
+    store.claim_occurrence(recovered_occurrence)
+
+    attempts = AttemptStore(workspace)
+    attempts.create(
+        ExecutionAttempt(
+            attempt_id=attempt_id(retry_key, 1),
+            execution_key=retry_key,
+            attempt_number=1,
+            status=AttemptStatus.FAILED,
+            started_at=datetime(2026, 1, 1, 2, 2, tzinfo=UTC),
+            finished_at=datetime(2026, 1, 1, 2, 3, tzinfo=UTC),
+            error="RuntimeError: deterministic upstream failure",
+        )
+    )
+    attempts.create(
+        ExecutionAttempt(
+            attempt_id=attempt_id(retry_key, 2),
+            execution_key=retry_key,
+            attempt_number=2,
+            status=AttemptStatus.COMPLETED,
+            started_at=datetime(2026, 1, 1, 2, 5, tzinfo=UTC),
+            finished_at=datetime(2026, 1, 1, 2, 8, tzinfo=UTC),
+            run_id=changed_run.run_id,
+        )
+    )
 
 
 def main() -> None:
