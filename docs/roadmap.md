@@ -100,7 +100,10 @@
 
 ### M3.3 — One-shot runner and Windows Task Scheduler adapter
 
-- [ ] Read-only due-work planning endpoint or command
+- [x] Read-only due-work planning endpoint and CLI command
+- [x] Deterministic latest-boundary classification per schedule
+- [x] Byte-for-byte read-only planning proof
+- [x] Collector non-invocation proof
 - [ ] One-shot bounded runner with explicit result summary
 - [ ] Dry-run and verification commands
 - [ ] One due-runner scheduled task

@@ -11,6 +11,7 @@ WATCH is read-only first.
 - perform explicit single-occurrence execution against approved public targets;
 - inspect bounded missed and stale occurrence attention without changing state;
 - retry a terminal failed occurrence only through an explicit operator request with a recorded reason;
+- plan the latest due boundary for each schedule without creating claims or executing work;
 - produce local reports;
 - run future approved public checks at low volume with explicit timeouts.
 
@@ -26,6 +27,17 @@ WATCH is read-only first.
 - a non-blank operator reason is mandatory and retained with the attempt;
 - no more than three retry attempts are allowed per occurrence;
 - no timer, automatic retry loop, batch retry, or background retry process is permitted.
+
+## Due-work planning boundary
+
+- the caller supplies an explicit timezone-aware evaluation timestamp;
+- the planner normalizes that timestamp to UTC;
+- at most one latest due boundary is considered per schedule;
+- the planner reuses the same deterministic occurrence-key calculation as claim evaluation;
+- existing occurrence state may be read but is never modified;
+- planning creates no claim, execution marker, retry attempt, run, action, or report;
+- planning invokes no collector;
+- planning performs no catch-up scan, batch execution, automatic retry, or background work.
 
 ## Not allowed without explicit design and approval
 
