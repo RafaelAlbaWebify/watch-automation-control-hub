@@ -45,7 +45,7 @@ def main() -> None:
             _assert_text(page, "Degraded public demo")
             _assert_text(page, "Disabled public demo")
             page.get_by_role("link", name="Degraded public demo").click()
-            _assert_text(page, "Target summary")
+            page.get_by_label("Target summary").wait_for(state="visible")
             _assert_text(page, "degraded-hourly")
             _assert_text(page, "Run and change history")
             _assert_text(page, "http_status")
