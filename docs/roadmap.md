@@ -95,8 +95,8 @@
 - [x] Linux and Windows service proof
 - [x] Retry and attempt-history API
 - [x] OpenAPI request-body and HTTP error-mapping proof
-- [ ] Read-only operator attempt visibility
-- [ ] Browser proof for attempt history
+- [x] Read-only operator attempt visibility
+- [x] Browser proof for attempt history
 
 ### M3.3 — One-shot runner and Windows Task Scheduler adapter
 
@@ -169,6 +169,17 @@
 - [x] Apply severity and status visual hierarchy to every evidence table
 - [x] Add accessible captions to every evidence table
 - [x] Remove the unused duplicate change-timeline module
+
+### M4.7 — Retry attempt visibility
+
+- [x] Read-only attempt history page
+- [x] Attempt identity, occurrence, number, reason, status, timestamps, run, and error evidence
+- [x] Dashboard attempt metric
+- [x] Active navigation and accessible table caption
+- [x] HTML escaping for operator reasons and errors
+- [x] Report links for run-backed attempts
+- [x] Empty-state and OpenAPI-exclusion proof
+- [x] Playwright semantic proof and attempt screenshot
 
 ## Deferred
 
