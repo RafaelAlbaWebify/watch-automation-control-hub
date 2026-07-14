@@ -39,6 +39,7 @@ local target inventory
   -> Markdown and JSON reports
   -> local operator API
   -> read-only operator dashboard
+  -> Playwright browser and screenshot proof
 ```
 
 Collected evidence includes:
@@ -172,9 +173,13 @@ Every pull request runs:
 - deterministic demo generation;
 - FastAPI contract and OpenAPI tests;
 - read-only dashboard route and empty-state tests;
+- Playwright Chromium semantic navigation checks;
+- browser console-error validation;
+- CI-generated dashboard, target, run, action, and report screenshots;
+- Playwright trace retention on browser failure;
 - Windows operator verification;
 - Windows review ZIP export;
-- Linux and Windows proof-artifact upload.
+- Linux, Windows, and visual proof-artifact upload.
 
 Superseded branch runs are cancelled automatically so only the latest commit consumes CI capacity.
 
@@ -212,6 +217,7 @@ Current controls include:
 - API workspace configured at startup rather than supplied by requests;
 - controlled local-only action state transitions;
 - read-only dashboard pages with no execution or state-transition controls;
+- deterministic browser proof uses only public-safe local sample evidence;
 - no authentication bypass, form submission, crawling, credential storage, retries, automatic recovery, Task Scheduler installation, batch execution, or external modification.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
@@ -220,14 +226,14 @@ See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md]
 
 ```text
 src/watch/           domain, services, collectors, storage, reports, CLI, API, and web workbench
- tests/              automated unit, API, and dashboard route proof
+tests/               automated unit, API, and dashboard route proof
 samples/             public-safe sample inputs
-scripts/             setup, verification, demo, workbench launch, and review export
+scripts/             setup, verification, demo, UI proof, workbench launch, and review export
 docs/                architecture, roadmap, safety, and milestone evidence
-.github/workflows/   Linux and Windows GitHub verification
+.github/workflows/   Linux, Windows, and browser verification
 .watch-data/         generated local state, ignored by Git
 ```
 
 ## Next milestone
 
-The next bounded slice is M4.2: add a deterministic sample workspace, Playwright semantic browser tests, CI-generated dashboard screenshots, and failure traces before expanding the interface or returning to Task Scheduler and retry work.
+The next bounded interface slice is M4.3: expose schedule inventory, occurrence history, and attention visibility through the existing read-only workbench before returning to retry policy or Windows Task Scheduler integration.
