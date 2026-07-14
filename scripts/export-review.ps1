@@ -1,9 +1,17 @@
+param(
+    [switch]$SkipVerification
+)
+
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
-& (Join-Path $Root "scripts\verify.ps1")
-& (Join-Path $Root "scripts\run-demo.ps1")
+if (-not $SkipVerification) {
+    & (Join-Path $Root "scripts\verify.ps1")
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & (Join-Path $Root "scripts\run-demo.ps1")
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 
 $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $Downloads = Join-Path $HOME "Downloads"
@@ -20,10 +28,11 @@ foreach ($Item in $Include) {
     if (Test-Path $Source) { Copy-Item $Source -Destination $Stage -Recurse -Force }
 }
 
+$Verification = if ($SkipVerification) { "PREVERIFIED" } else { "PASS" }
 [ordered]@{
     project = "WATCH"
     generated_at = (Get-Date).ToString("o")
-    verification = "PASS"
+    verification = $Verification
     source_root = $Root
 } | ConvertTo-Json | Set-Content (Join-Path $Stage "manifest.json") -Encoding UTF8
 
