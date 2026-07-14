@@ -22,13 +22,15 @@
 - [x] Page title extraction
 - [x] Basic DNS resolution
 - [x] Public-address validation for each redirect hop
+- [x] HTTP transport pinned to a selected validated IPv4 or IPv6 address
+- [x] Original Host and TLS SNI/certificate verification preserved
+- [x] Mixed public/private DNS responses blocked
 - [x] Mocked collector and safety tests
 - [x] Safe single-target live CLI with bounded timeouts and redirects
 - [x] Linux and Windows proof artifacts
 
-### M1 hardening still open
+### M1 evidence improvements still open
 
-- [ ] Pin the HTTP transport to the address already validated by WATCH
 - [ ] Capture selected response headers and content metadata
 - [ ] Add a sanitized committed example of a live-generated report
 
