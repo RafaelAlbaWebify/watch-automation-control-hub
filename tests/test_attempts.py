@@ -91,7 +91,8 @@ def test_retry_backfills_original_failure_and_preserves_it(tmp_path: Path) -> No
     assert attempts[0].error == "RuntimeError: first failure"
     assert attempts[0].started_at == occurrence.execution_started_at
     assert retry_attempt.status == AttemptStatus.COMPLETED
-    assert retry_attempt.run_id == run.run_id if run else False
+    assert run is not None
+    assert retry_attempt.run_id == run.run_id
     assert result == "completed"
     assert finished.status == OccurrenceStatus.COMPLETED
     assert finished.error is None
