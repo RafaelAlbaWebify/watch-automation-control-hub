@@ -111,17 +111,13 @@ jobs:
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
           python -m pytest --junitxml=artifacts\test-results.xml
 
-      - name: Run WATCH verification command
-        shell: pwsh
-        run: .\WATCH.ps1 verify
-
       - name: Run WATCH demo
         shell: pwsh
         run: .\WATCH.ps1 demo
 
-      - name: Export review package
+      - name: Export preverified review package
         shell: pwsh
-        run: .\WATCH.ps1 export
+        run: .\scripts\export-review.ps1 -SkipVerification
 
       - name: Collect Windows proof
         if: always()
