@@ -28,7 +28,7 @@ a:focus-visible { outline: 3px solid #f6e05e; outline-offset: 3px; }
   z-index: 10;
 }
 .skip-link:focus { top: .75rem; }
-main { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+main { padding: 2rem; max-width: 1200px; margin: 0 auto; overflow-x: auto; }
 section { margin-block: 1.5rem; }
 .grid {
   display: grid;
@@ -96,6 +96,17 @@ NAVIGATION = (
     ("API", "/docs"),
 )
 
+_TITLE_PATHS = {
+    "Operator dashboard": "/",
+    "Targets": "/targets",
+    "Schedules": "/schedules",
+    "Occurrences": "/occurrences",
+    "Schedule attention": "/attention",
+    "Runs": "/runs",
+    "Change timeline": "/changes",
+    "Actions": "/actions",
+}
+
 
 def navigation(current_path: str) -> str:
     links: list[str] = []
@@ -104,9 +115,7 @@ def navigation(current_path: str) -> str:
             path == "/targets" and current_path.startswith("/targets/")
         )
         current = ' aria-current="page"' if active else ""
-        links.append(
-            f'<a href="{escape(path)}"{current}>{escape(label)}</a>'
-        )
+        links.append(f'<a href="{escape(path)}"{current}>{escape(label)}</a>')
     return "".join(links)
 
 
@@ -139,7 +148,13 @@ def table(content: str, caption: str, *, compact: bool = False) -> str:
     )
 
 
-def page(title: str, body: str, *, current_path: str) -> HTMLResponse:
+def page(
+    title: str,
+    body: str,
+    *,
+    current_path: str | None = None,
+) -> HTMLResponse:
+    active_path = current_path or _TITLE_PATHS.get(title, "/targets")
     document = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -153,7 +168,7 @@ def page(title: str, body: str, *, current_path: str) -> HTMLResponse:
 <header>
   <h1>WATCH</h1>
   <p>Workflow Automation &amp; Technical Control Hub</p>
-  <nav aria-label="Primary">{navigation(current_path)}</nav>
+  <nav aria-label="Primary">{navigation(active_path)}</nav>
 </header>
 <main id="main-content" tabindex="-1">
   <h2>{escape(title)}</h2>
