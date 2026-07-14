@@ -104,30 +104,43 @@ def test_dashboard_exposes_operational_scheduling_and_change_evidence(
     report = client.get(f"/reports/{changed_run_id}")
 
     assert dashboard.status_code == 200
-    assert "Latest: completed" in dashboard.text
+    assert "Latest:" in dashboard.text
+    assert 'badge badge-success">completed' in dashboard.text
     assert "Target drill-down" in dashboard.text
     assert 'href="/targets/portfolio-demo"' in dashboard.text
     assert "Portfolio Demo" in targets.text
+    assert "Registered operational targets" in targets.text
+    assert 'badge badge-success">enabled' in targets.text
     assert 'href="/targets/portfolio-demo"' in targets.text
     assert "portfolio-hourly" in schedules.text
+    assert "Configured recurring schedules" in schedules.text
     assert "60 minutes" in schedules.text
     assert "portfolio-hourly" in occurrences.text
-    assert "executing" in occurrences.text
-    assert "missed-unclaimed" in attention.text
-    assert "executing-stale" in attention.text
+    assert "Persisted schedule occurrences" in occurrences.text
+    assert 'badge badge-warning">executing' in occurrences.text
+    assert "Missed and stale occurrence attention" in attention.text
+    assert 'badge badge-warning">missed-unclaimed' in attention.text
+    assert 'badge badge-warning">executing-stale' in attention.text
     assert changed_run_id in runs.text
+    assert "Immutable workflow run history" in runs.text
     assert "Open report" in runs.text
     assert changes.status_code == 200
+    assert "Chronological target change evidence" in changes.text
     assert baseline_run_id in changes.text
     assert changed_run_id in changes.text
     assert "baseline evidence" in changes.text
     assert "http_status" in changes.text
     assert "Previous run" in changes.text
+    assert "Operational action history" in actions.text
+    assert 'badge badge-danger">open' in actions.text
     assert "UNEXPECTED_HTTP_STATUS" in actions.text
     assert target_detail.status_code == 200
     assert "Target summary" in target_detail.text
+    assert "Target configuration" in target_detail.text
+    assert "Schedules linked to this target" in target_detail.text
+    assert "Run and change history for this target" in target_detail.text
+    assert "Operational actions for this target" in target_detail.text
     assert "portfolio-hourly" in target_detail.text
-    assert "Run and change history" in target_detail.text
     assert "http_status" in target_detail.text
     assert "UNEXPECTED_HTTP_STATUS" in target_detail.text
     assert report.status_code == 200
