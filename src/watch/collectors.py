@@ -63,6 +63,23 @@ def validate_public_ips(addresses: list[str]) -> None:
         raise ValueError(f"non-public address blocked: {', '.join(blocked)}")
 
 
+def _host_header(url: httpx.URL) -> str:
+    hostname = url.host
+    if ":" in hostname and not hostname.startswith("["):
+        hostname = f"[{hostname}]"
+    default_port = 443 if url.scheme == "https" else 80
+    return hostname if url.port == default_port else f"{hostname}:{url.port}"
+
+
+def _pinned_request(url: str, address: str) -> tuple[httpx.URL, dict[str, str], dict[str, str]]:
+    logical_url = httpx.URL(url)
+    hostname = logical_url.host
+    transport_url = logical_url.copy_with(host=address)
+    headers = {"Host": _host_header(logical_url)}
+    extensions = {"sni_hostname": hostname}
+    return transport_url, headers, extensions
+
+
 class WebsiteCollector:
     def __init__(
         self,
@@ -95,6 +112,7 @@ class WebsiteCollector:
             follow_redirects=False,
             timeout=target.timeout_seconds,
             headers={"User-Agent": "WATCH/0.2 read-only health check"},
+            trust_env=False,
         )
 
         started = perf_counter()
@@ -108,7 +126,15 @@ class WebsiteCollector:
                     errors.append(f"Target validation failed: {exc}")
                     break
 
-                response = client.get(current_url, follow_redirects=False)
+                request_url, request_headers, request_extensions = _pinned_request(
+                    current_url, hop_ips[0]
+                )
+                response = client.get(
+                    request_url,
+                    headers=request_headers,
+                    extensions=request_extensions,
+                    follow_redirects=False,
+                )
                 location = response.headers.get("location")
                 if response.is_redirect and location:
                     if redirect_index == self._max_redirects:
@@ -140,7 +166,7 @@ class WebsiteCollector:
 
                 return ObservationSet(
                     http_status=response.status_code,
-                    final_url=str(response.url),
+                    final_url=str(httpx.URL(current_url)),
                     redirect_count=len(redirect_chain),
                     redirect_chain=redirect_chain,
                     response_ms=elapsed_ms,
