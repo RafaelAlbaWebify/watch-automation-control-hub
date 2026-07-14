@@ -53,6 +53,12 @@ def mount_change_timeline_routes(app: FastAPI, workspace: Path) -> None:
     @app.get("/changes", response_class=HTMLResponse, include_in_schema=False)
     def change_timeline() -> HTMLResponse:
         runs = store.list_runs()
+        if not runs:
+            return page(
+                "Change timeline",
+                '<p class="empty">No run evidence exists for the change timeline.</p>',
+            )
+
         actions = store.list_actions()
         content = (
             "<thead><tr><th>Observed at</th><th>Target</th><th>Run</th>"
@@ -62,11 +68,10 @@ def mount_change_timeline_routes(app: FastAPI, workspace: Path) -> None:
             + _timeline_rows(runs, actions)
             + "</tbody>"
         )
+        timeline_table = table(content, "Chronological target change evidence")
         body = (
             '<p class="note">Read-only chronology built from immutable runs, '
             "previous-run links, findings, actions, and reports.</p>"
-            + table(content, "Chronological target change evidence")
-            if runs
-            else '<p class="empty">No run evidence exists for the change timeline.</p>'
+            + timeline_table
         )
         return page("Change timeline", body)
