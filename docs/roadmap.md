@@ -94,8 +94,8 @@
 - [x] Linux and Windows service proof
 - [x] Retry and attempt-history API
 - [x] OpenAPI and HTTP error-mapping proof
-- [ ] Read-only operator attempt visibility
-- [ ] Browser proof for attempt history
+- [x] Read-only operator attempt visibility
+- [x] Browser proof and screenshot for attempt history
 
 ### M3.3 — Windows Task Scheduler adapter
 
