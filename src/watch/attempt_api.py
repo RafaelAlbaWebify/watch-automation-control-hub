@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Protocol
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from watch.attempts import (
     AttemptLimitReachedError,
@@ -23,6 +23,18 @@ from watch.storage import JsonStore
 
 class Collector(Protocol):
     def collect(self, target: Target) -> ObservationSet: ...
+
+
+class RetryRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("reason must not be blank")
+        return stripped
 
 
 class RetryResponse(BaseModel):
@@ -57,9 +69,15 @@ def mount_attempt_routes(
         "/api/occurrences/{execution_key}/retry",
         response_model=RetryResponse,
     )
-    def retry_occurrence(execution_key: str) -> RetryResponse:
+    def retry_occurrence(
+        execution_key: str,
+        request: RetryRequest,
+    ) -> RetryResponse:
         try:
-            occurrence, attempt, run, result = service.retry(execution_key)
+            occurrence, attempt, run, result = service.retry(
+                execution_key,
+                request.reason,
+            )
         except OccurrenceNotFoundError as exc:
             raise HTTPException(status_code=404, detail="occurrence not found") from exc
         except OccurrenceScheduleNotFoundError as exc:
