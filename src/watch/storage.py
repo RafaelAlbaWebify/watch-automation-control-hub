@@ -6,7 +6,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from watch.models import OperationalAction, WorkflowRun
+from watch.models import OperationalAction, Target, WorkflowRun
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -14,10 +14,16 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 class JsonStore:
     def __init__(self, workspace: Path) -> None:
         self.workspace = workspace
+        self.targets_dir = workspace / "targets"
         self.runs_dir = workspace / "runs"
         self.actions_dir = workspace / "actions"
         self.reports_dir = workspace / "reports"
-        for directory in (self.runs_dir, self.actions_dir, self.reports_dir):
+        for directory in (
+            self.targets_dir,
+            self.runs_dir,
+            self.actions_dir,
+            self.reports_dir,
+        ):
             directory.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
@@ -29,6 +35,28 @@ class JsonStore:
     @staticmethod
     def _read(path: Path, model_type: type[ModelT]) -> ModelT:
         return model_type.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def create_target(self, target: Target) -> Path:
+        path = self.targets_dir / f"{target.target_id}.json"
+        if path.exists():
+            raise FileExistsError(f"target already exists: {target.target_id}")
+        self._write(path, target)
+        return path
+
+    def update_target(self, target: Target) -> Path:
+        path = self.targets_dir / f"{target.target_id}.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"target not found: {target.target_id}")
+        self._write(path, target)
+        return path
+
+    def get_target(self, target_id: str) -> Target | None:
+        path = self.targets_dir / f"{target_id}.json"
+        return self._read(path, Target) if path.is_file() else None
+
+    def list_targets(self) -> list[Target]:
+        targets = [self._read(path, Target) for path in self.targets_dir.glob("*.json")]
+        return sorted(targets, key=lambda target: target.target_id)
 
     def save_run(self, run: WorkflowRun) -> Path:
         path = self.runs_dir / f"{run.run_id}.json"

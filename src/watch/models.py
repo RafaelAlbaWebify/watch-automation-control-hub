@@ -44,6 +44,23 @@ class Target(BaseModel):
         return sorted(set(values))
 
 
+class TargetUpdate(BaseModel):
+    name: str = Field(min_length=1)
+    url: HttpUrl
+    enabled: bool = True
+    tags: list[str] = Field(default_factory=list)
+    expected_status_codes: list[int] = Field(default_factory=lambda: [200])
+    timeout_seconds: int = Field(default=10, ge=1, le=60)
+
+    @field_validator("expected_status_codes")
+    @classmethod
+    def validate_status_codes(cls, values: list[int]) -> list[int]:
+        return Target.validate_status_codes(values)
+
+    def apply_to(self, target_id: str) -> Target:
+        return Target(target_id=target_id, **self.model_dump())
+
+
 class ObservationSet(BaseModel):
     http_status: int | None = Field(default=None, ge=100, le=599)
     final_url: str | None = None

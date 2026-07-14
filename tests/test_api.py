@@ -15,6 +15,18 @@ def _target() -> Target:
     )
 
 
+def _target_payload() -> dict[str, object]:
+    return {
+        "target_id": "inventory-demo",
+        "name": "Inventory Demo",
+        "url": "https://example.com",
+        "enabled": True,
+        "tags": ["portfolio"],
+        "expected_status_codes": [200],
+        "timeout_seconds": 10,
+    }
+
+
 def _action_id(tmp_path: Path) -> str:
     _, actions, _ = execute_supplied_observations(
         _target(), ObservationSet(http_status=503), tmp_path
@@ -28,8 +40,66 @@ def test_empty_workspace_returns_empty_collections(tmp_path: Path) -> None:
         "status": "ok",
         "mode": "local-operator",
     }
+    assert client.get("/api/targets").json() == []
     assert client.get("/api/runs").json() == []
     assert client.get("/api/actions").json() == []
+
+
+def test_target_inventory_create_list_get_and_update(tmp_path: Path) -> None:
+    client = TestClient(create_app(tmp_path))
+    payload = _target_payload()
+
+    created = client.post("/api/targets", json=payload)
+    assert created.status_code == 201
+    assert created.json()["target_id"] == "inventory-demo"
+
+    assert client.get("/api/targets").json()[0]["name"] == "Inventory Demo"
+    assert client.get("/api/targets/inventory-demo").status_code == 200
+
+    update_payload = {
+        key: value for key, value in payload.items() if key != "target_id"
+    }
+    update_payload["name"] = "Updated Inventory Demo"
+    update_payload["enabled"] = False
+    update_payload["expected_status_codes"] = [204, 200, 200]
+
+    updated = client.put("/api/targets/inventory-demo", json=update_payload)
+    assert updated.status_code == 200
+    assert updated.json()["target_id"] == "inventory-demo"
+    assert updated.json()["name"] == "Updated Inventory Demo"
+    assert updated.json()["enabled"] is False
+    assert updated.json()["expected_status_codes"] == [200, 204]
+
+    persisted = TestClient(create_app(tmp_path)).get(
+        "/api/targets/inventory-demo"
+    )
+    assert persisted.json()["name"] == "Updated Inventory Demo"
+
+
+def test_target_inventory_rejects_conflicts_missing_and_invalid_data(
+    tmp_path: Path,
+) -> None:
+    client = TestClient(create_app(tmp_path))
+    payload = _target_payload()
+
+    assert client.post("/api/targets", json=payload).status_code == 201
+    assert client.post("/api/targets", json=payload).status_code == 409
+    assert client.get("/api/targets/missing").status_code == 404
+
+    update_payload = {
+        key: value for key, value in payload.items() if key != "target_id"
+    }
+    assert client.put("/api/targets/missing", json=update_payload).status_code == 404
+
+    invalid_payload = dict(payload)
+    invalid_payload["url"] = "file:///etc/passwd"
+    assert client.post("/api/targets", json=invalid_payload).status_code == 422
+
+    invalid_update = dict(update_payload)
+    invalid_update["timeout_seconds"] = 0
+    assert client.put(
+        "/api/targets/inventory-demo", json=invalid_update
+    ).status_code == 422
 
 
 def test_api_exposes_persisted_run_action_and_report(tmp_path: Path) -> None:
@@ -96,6 +166,8 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
     schema = TestClient(create_app(tmp_path)).get("/openapi.json").json()
     assert set(schema["paths"]) == {
         "/api/health",
+        "/api/targets",
+        "/api/targets/{target_id}",
         "/api/runs",
         "/api/runs/{run_id}",
         "/api/actions",
@@ -103,5 +175,7 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
         "/api/actions/{action_id}/resolve",
         "/api/reports/{run_id}.md",
     }
+    assert set(schema["paths"]["/api/targets"]) == {"get", "post"}
+    assert set(schema["paths"]["/api/targets/{target_id}"]) == {"get", "put"}
     assert set(schema["paths"]["/api/actions/{action_id}/acknowledge"]) == {"post"}
     assert set(schema["paths"]["/api/actions/{action_id}/resolve"]) == {"post"}

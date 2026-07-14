@@ -4,12 +4,13 @@ import os
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from watch.actions import ActionNotFoundError, ActionService, InvalidActionTransitionError
-from watch.models import OperationalAction, WorkflowRun
+from watch.models import OperationalAction, Target, TargetUpdate, WorkflowRun
 from watch.storage import JsonStore
+from watch.targets import TargetAlreadyExistsError, TargetNotFoundError, TargetService
 
 
 class ResolutionRequest(BaseModel):
@@ -19,15 +20,45 @@ class ResolutionRequest(BaseModel):
 def create_app(workspace: Path) -> FastAPI:
     store = JsonStore(workspace)
     actions = ActionService(store)
+    targets = TargetService(store)
     app = FastAPI(
         title="WATCH Operator API",
-        version="0.4.0",
-        description="Local operator access to WATCH evidence and action state.",
+        version="0.5.0",
+        description="Local operator access to WATCH targets, evidence, and action state.",
     )
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "mode": "local-operator"}
+
+    @app.get("/api/targets", response_model=list[Target])
+    def list_targets() -> list[Target]:
+        return targets.list()
+
+    @app.get("/api/targets/{target_id}", response_model=Target)
+    def get_target(target_id: str) -> Target:
+        try:
+            return targets.get(target_id)
+        except TargetNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="target not found") from exc
+
+    @app.post(
+        "/api/targets",
+        response_model=Target,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def create_target(target: Target) -> Target:
+        try:
+            return targets.create(target)
+        except TargetAlreadyExistsError as exc:
+            raise HTTPException(status_code=409, detail="target already exists") from exc
+
+    @app.put("/api/targets/{target_id}", response_model=Target)
+    def update_target(target_id: str, request: TargetUpdate) -> Target:
+        try:
+            return targets.update(target_id, request)
+        except TargetNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="target not found") from exc
 
     @app.get("/api/runs", response_model=list[WorkflowRun])
     def list_runs() -> list[WorkflowRun]:
