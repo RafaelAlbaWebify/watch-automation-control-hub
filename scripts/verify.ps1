@@ -19,9 +19,20 @@ function Invoke-CheckedPython {
     )
 
     $LogPath = Join-Path $Artifacts $LogName
-    & $Python @Arguments 2>&1 | Tee-Object -FilePath $LogPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code $LASTEXITCODE. See $LogPath"
+    $ErrorPath = Join-Path $Artifacts "$LogName.stderr"
+    $Process = Start-Process `
+        -FilePath $Python `
+        -ArgumentList $Arguments `
+        -NoNewWindow `
+        -Wait `
+        -PassThru `
+        -RedirectStandardOutput $LogPath `
+        -RedirectStandardError $ErrorPath
+
+    if (Test-Path $LogPath) { Get-Content $LogPath | Write-Host }
+    if (Test-Path $ErrorPath) { Get-Content $ErrorPath | Write-Host }
+    if ($Process.ExitCode -ne 0) {
+        throw "Command failed with exit code $($Process.ExitCode). See $LogPath and $ErrorPath"
     }
 }
 
