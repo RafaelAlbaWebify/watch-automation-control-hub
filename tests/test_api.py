@@ -344,6 +344,7 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
         "/api/schedules/{schedule_id}/occurrences/evaluate",
         "/api/occurrences",
         "/api/occurrences/{execution_key}",
+        "/api/occurrences/{execution_key}/execute",
         "/api/runs",
         "/api/runs/{run_id}",
         "/api/actions",
@@ -361,5 +362,8 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
     ) == {"post"}
     assert set(schema["paths"]["/api/occurrences"]) == {"get"}
     assert set(schema["paths"]["/api/occurrences/{execution_key}"]) == {"get"}
+    assert set(
+        schema["paths"]["/api/occurrences/{execution_key}/execute"]
+    ) == {"post"}
     assert set(schema["paths"]["/api/actions/{action_id}/acknowledge"]) == {"post"}
     assert set(schema["paths"]["/api/actions/{action_id}/resolve"]) == {"post"}

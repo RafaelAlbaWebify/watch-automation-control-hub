@@ -23,6 +23,7 @@ class JsonStore:
         self.targets_dir = workspace / "targets"
         self.schedules_dir = workspace / "schedules"
         self.occurrences_dir = workspace / "occurrences"
+        self.occurrence_locks_dir = workspace / "occurrence-locks"
         self.runs_dir = workspace / "runs"
         self.actions_dir = workspace / "actions"
         self.reports_dir = workspace / "reports"
@@ -30,6 +31,7 @@ class JsonStore:
             self.targets_dir,
             self.schedules_dir,
             self.occurrences_dir,
+            self.occurrence_locks_dir,
             self.runs_dir,
             self.actions_dir,
             self.reports_dir,
@@ -101,6 +103,21 @@ class JsonStore:
     def claim_occurrence(self, occurrence: ScheduleOccurrence) -> Path:
         path = self.occurrences_dir / f"{occurrence.execution_key}.json"
         self._create_exclusive(path, occurrence)
+        return path
+
+    def update_occurrence(self, occurrence: ScheduleOccurrence) -> Path:
+        path = self.occurrences_dir / f"{occurrence.execution_key}.json"
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"occurrence not found: {occurrence.execution_key}"
+            )
+        self._write(path, occurrence)
+        return path
+
+    def begin_occurrence_execution(self, execution_key: str) -> Path:
+        path = self.occurrence_locks_dir / f"{execution_key}.lock"
+        with path.open("x", encoding="utf-8") as file:
+            file.write(execution_key)
         return path
 
     def get_occurrence(self, execution_key: str) -> ScheduleOccurrence | None:

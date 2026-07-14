@@ -2,9 +2,24 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
+from pathlib import Path
+from typing import Protocol
 
-from watch.models import IntervalSchedule, ScheduleOccurrence
+from watch.models import (
+    IntervalSchedule,
+    ObservationSet,
+    OccurrenceStatus,
+    RunStatus,
+    ScheduleOccurrence,
+    Target,
+    WorkflowRun,
+)
 from watch.storage import JsonStore
+from watch.workflow import execute_supplied_observations
+
+
+class Collector(Protocol):
+    def collect(self, target: Target) -> ObservationSet: ...
 
 
 class OccurrenceNotFoundError(LookupError):
@@ -12,6 +27,14 @@ class OccurrenceNotFoundError(LookupError):
 
 
 class OccurrenceScheduleNotFoundError(LookupError):
+    pass
+
+
+class OccurrenceTargetNotFoundError(LookupError):
+    pass
+
+
+class OccurrenceExecutionBlockedError(RuntimeError):
     pass
 
 
@@ -98,3 +121,103 @@ class OccurrenceService:
                 raise
             return existing, "already-claimed"
         return occurrence, "claimed"
+
+
+class OccurrenceExecutionService:
+    _TERMINAL = {
+        OccurrenceStatus.COMPLETED,
+        OccurrenceStatus.PARTIAL,
+        OccurrenceStatus.FAILED,
+        OccurrenceStatus.MISSED,
+    }
+
+    def __init__(
+        self,
+        store: JsonStore,
+        workspace: Path,
+        collector: Collector,
+    ) -> None:
+        self._store = store
+        self._workspace = workspace
+        self._collector = collector
+
+    def execute(
+        self,
+        execution_key_value: str,
+    ) -> tuple[ScheduleOccurrence, WorkflowRun | None, str]:
+        occurrence = self._store.get_occurrence(execution_key_value)
+        if occurrence is None:
+            raise OccurrenceNotFoundError(execution_key_value)
+        if occurrence.status in self._TERMINAL:
+            run = self._store.get_run(occurrence.run_id) if occurrence.run_id else None
+            return occurrence, run, "already-finished"
+        if occurrence.status == OccurrenceStatus.EXECUTING:
+            return occurrence, None, "already-executing"
+
+        schedule = self._store.get_schedule(occurrence.schedule_id)
+        if schedule is None:
+            raise OccurrenceScheduleNotFoundError(occurrence.schedule_id)
+        if not schedule.enabled:
+            raise OccurrenceExecutionBlockedError("schedule is disabled")
+        target = self._store.get_target(occurrence.target_id)
+        if target is None:
+            raise OccurrenceTargetNotFoundError(occurrence.target_id)
+        if not target.enabled:
+            raise OccurrenceExecutionBlockedError("target is disabled")
+
+        try:
+            self._store.begin_occurrence_execution(execution_key_value)
+        except FileExistsError:
+            current = self._store.get_occurrence(execution_key_value)
+            if current is None:
+                raise OccurrenceNotFoundError(execution_key_value) from None
+            run = self._store.get_run(current.run_id) if current.run_id else None
+            result = (
+                "already-finished"
+                if current.status in self._TERMINAL
+                else "already-executing"
+            )
+            return current, run, result
+
+        started = occurrence.model_copy(
+            update={
+                "status": OccurrenceStatus.EXECUTING,
+                "execution_started_at": datetime.now(UTC),
+                "error": None,
+            }
+        )
+        self._store.update_occurrence(started)
+
+        try:
+            observations = self._collector.collect(target)
+            run, _, _ = execute_supplied_observations(
+                target=target,
+                observations=observations,
+                workspace=self._workspace,
+            )
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"[:2000]
+            failed = started.model_copy(
+                update={
+                    "status": OccurrenceStatus.FAILED,
+                    "finished_at": datetime.now(UTC),
+                    "error": error,
+                }
+            )
+            self._store.update_occurrence(failed)
+            return failed, None, "failed"
+
+        status = (
+            OccurrenceStatus.PARTIAL
+            if run.status == RunStatus.PARTIAL
+            else OccurrenceStatus.COMPLETED
+        )
+        finished = started.model_copy(
+            update={
+                "status": status,
+                "finished_at": datetime.now(UTC),
+                "run_id": run.run_id,
+            }
+        )
+        self._store.update_occurrence(finished)
+        return finished, run, status.value
