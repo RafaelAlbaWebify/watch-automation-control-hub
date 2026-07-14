@@ -134,26 +134,36 @@ def test_dashboard_exposes_operational_scheduling_and_change_evidence(
     assert "WATCH Operational Report" in report.text
 
 
-def test_all_operator_pages_share_complete_navigation(tmp_path: Path) -> None:
+def test_all_operator_pages_share_accessible_navigation(tmp_path: Path) -> None:
     _seed_workspace(tmp_path)
     client = TestClient(create_app(tmp_path))
 
-    for path in (
-        "/",
-        "/targets",
-        "/targets/portfolio-demo",
-        "/schedules",
-        "/occurrences",
-        "/attention",
-        "/runs",
-        "/changes",
-        "/actions",
-    ):
+    expected_active = {
+        "/": 'href="/" aria-current="page">Dashboard</a>',
+        "/targets": 'href="/targets" aria-current="page">Targets</a>',
+        "/targets/portfolio-demo": (
+            'href="/targets" aria-current="page">Targets</a>'
+        ),
+        "/schedules": 'href="/schedules" aria-current="page">Schedules</a>',
+        "/occurrences": (
+            'href="/occurrences" aria-current="page">Occurrences</a>'
+        ),
+        "/attention": 'href="/attention" aria-current="page">Attention</a>',
+        "/runs": 'href="/runs" aria-current="page">Runs</a>',
+        "/changes": 'href="/changes" aria-current="page">Changes</a>',
+        "/actions": 'href="/actions" aria-current="page">Actions</a>',
+    }
+
+    for path, active_link in expected_active.items():
         response = client.get(path)
         assert response.status_code == 200
-        assert 'href="/changes">Changes</a>' in response.text
-        assert 'href="/targets">Targets</a>' in response.text
-        assert 'href="/docs">API</a>' in response.text
+        assert 'class="skip-link" href="#main-content"' in response.text
+        assert '<nav aria-label="Primary">' in response.text
+        assert 'href="/changes"' in response.text
+        assert 'href="/targets"' in response.text
+        assert 'href="/docs"' in response.text
+        assert active_link in response.text
+        assert 'id="main-content" tabindex="-1"' in response.text
 
 
 def test_dashboard_keeps_json_api_and_openapi_contract_available(tmp_path: Path) -> None:
