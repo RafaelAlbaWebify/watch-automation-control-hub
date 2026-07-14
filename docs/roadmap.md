@@ -117,7 +117,23 @@
 - [x] Stale-execution attention visibility
 - [x] Schedule and occurrence dashboard metrics
 - [x] Playwright semantic checks and screenshots
-- [ ] Change timeline
+
+### M4.4 — Change timeline
+
+- [x] Baseline and changed-run chronology
+- [x] Previous-run linkage
+- [x] Changed-field visibility
+- [x] Finding and action counts per run
+- [x] Human-readable report links
+- [x] Empty-state and populated-state tests
+- [x] Playwright semantic proof and screenshot
+
+### M4.5 — Operator navigation and drill-down
+
+- [ ] Consistent navigation to all operator pages
+- [ ] Target-focused detail page
+- [ ] Target run, action, schedule, and change summary
+- [ ] Browser proof for target drill-down
 
 ## Deferred
 
