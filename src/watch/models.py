@@ -34,6 +34,11 @@ class OccurrenceStatus(StrEnum):
     MISSED = "missed"
 
 
+class OccurrenceAttentionKind(StrEnum):
+    MISSED_UNCLAIMED = "missed-unclaimed"
+    EXECUTING_STALE = "executing-stale"
+
+
 class Target(BaseModel):
     target_id: str = Field(min_length=1, pattern=r"^[a-z0-9][a-z0-9-]*$")
     name: str = Field(min_length=1)
@@ -129,6 +134,24 @@ class ScheduleOccurrence(BaseModel):
             return None
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("occurrence timestamps must include a timezone")
+        return value.astimezone(UTC)
+
+
+class OccurrenceAttention(BaseModel):
+    execution_key: str = Field(pattern=r"^occ-[a-f0-9]{24}$")
+    schedule_id: str
+    target_id: str
+    occurrence_at: datetime
+    kind: OccurrenceAttentionKind
+    detected_at: datetime
+    age_minutes: int = Field(ge=0)
+    details: str
+
+    @field_validator("occurrence_at", "detected_at")
+    @classmethod
+    def normalize_attention_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("attention timestamps must include a timezone")
         return value.astimezone(UTC)
 
 

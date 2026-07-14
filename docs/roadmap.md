@@ -59,7 +59,7 @@
 - [x] Schedule list, detail, create, and update API
 - [x] Configuration-only safety proof with no collector invocation
 
-### M3.2 — Due evaluation, claims, and controlled execution
+### M3.2 — Due evaluation, claims, controlled execution, and visibility
 
 - [x] Deterministic occurrence calculation
 - [x] Idempotent execution keys
@@ -73,8 +73,11 @@
 - [x] Completed and partial run linkage
 - [x] Failed collector evidence retained on the occurrence
 - [x] Restart-safe terminal-state idempotency
-- [ ] Interrupted-execution and missed-run visibility
-- [ ] Explicit bounded retry policy
+- [x] Bounded missed-unclaimed boundary visibility
+- [x] Stale executing occurrence visibility
+- [x] Explicit grace and lookback limits
+- [x] Read-only attention API and persistence proof
+- [ ] Explicit bounded retry policy with separate attempt evidence
 
 ### M3.3 — Windows Task Scheduler adapter
 
@@ -89,6 +92,7 @@
 - [ ] Target inventory
 - [ ] Schedule inventory
 - [ ] Occurrence history
+- [ ] Attention visibility
 - [ ] Run history
 - [ ] Change timeline
 - [ ] Pending actions

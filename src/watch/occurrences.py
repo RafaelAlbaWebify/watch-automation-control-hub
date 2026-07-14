@@ -8,6 +8,8 @@ from typing import Protocol
 from watch.models import (
     IntervalSchedule,
     ObservationSet,
+    OccurrenceAttention,
+    OccurrenceAttentionKind,
     OccurrenceStatus,
     RunStatus,
     ScheduleOccurrence,
@@ -121,6 +123,82 @@ class OccurrenceService:
                 raise
             return existing, "already-claimed"
         return occurrence, "claimed"
+
+
+class OccurrenceAttentionService:
+    def __init__(self, store: JsonStore) -> None:
+        self._store = store
+
+    def inspect(
+        self,
+        evaluated_at: datetime,
+        grace_minutes: int,
+        lookback_occurrences: int,
+    ) -> list[OccurrenceAttention]:
+        evaluated_utc = normalize_evaluation_time(evaluated_at)
+        cutoff = evaluated_utc - timedelta(minutes=grace_minutes)
+        attention: list[OccurrenceAttention] = []
+
+        for schedule in self._store.list_schedules():
+            if not schedule.enabled:
+                continue
+            latest = latest_due_occurrence(schedule, cutoff)
+            if latest is None:
+                continue
+            interval = timedelta(minutes=schedule.interval_minutes)
+            for index in range(lookback_occurrences):
+                occurrence_at = latest - (index * interval)
+                if occurrence_at < schedule.start_at:
+                    break
+                key = execution_key(schedule.schedule_id, occurrence_at)
+                if self._store.get_occurrence(key) is not None:
+                    continue
+                age_minutes = int(
+                    (evaluated_utc - occurrence_at).total_seconds() // 60
+                )
+                attention.append(
+                    OccurrenceAttention(
+                        execution_key=key,
+                        schedule_id=schedule.schedule_id,
+                        target_id=schedule.target_id,
+                        occurrence_at=occurrence_at,
+                        kind=OccurrenceAttentionKind.MISSED_UNCLAIMED,
+                        detected_at=evaluated_utc,
+                        age_minutes=age_minutes,
+                        details=(
+                            "No occurrence record exists for this due schedule boundary."
+                        ),
+                    )
+                )
+
+        for occurrence in self._store.list_occurrences():
+            started_at = occurrence.execution_started_at
+            if (
+                occurrence.status != OccurrenceStatus.EXECUTING
+                or started_at is None
+                or started_at > cutoff
+            ):
+                continue
+            age_minutes = int((evaluated_utc - started_at).total_seconds() // 60)
+            attention.append(
+                OccurrenceAttention(
+                    execution_key=occurrence.execution_key,
+                    schedule_id=occurrence.schedule_id,
+                    target_id=occurrence.target_id,
+                    occurrence_at=occurrence.occurrence_at,
+                    kind=OccurrenceAttentionKind.EXECUTING_STALE,
+                    detected_at=evaluated_utc,
+                    age_minutes=age_minutes,
+                    details=(
+                        "Occurrence remains executing beyond the configured grace period."
+                    ),
+                )
+            )
+
+        return sorted(
+            attention,
+            key=lambda item: (item.occurrence_at, item.kind.value, item.execution_key),
+        )
 
 
 class OccurrenceExecutionService:
