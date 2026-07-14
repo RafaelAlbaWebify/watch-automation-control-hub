@@ -27,6 +27,7 @@ local target inventory
   -> atomic idempotent occurrence claims
   -> explicit at-most-once occurrence execution
   -> bounded read-only missed/interrupted attention visibility
+  -> bounded operator-controlled retry attempts
   -> DNS resolution and public-address validation
   -> address-pinned HTTP request and redirect inspection
   -> response timing and page-title extraction
@@ -85,6 +86,7 @@ Generated evidence is stored below `.watch-data`:
 ├── schedules/
 ├── occurrences/
 ├── occurrence-locks/
+├── retry-attempts/
 ├── runs/
 ├── actions/
 └── reports/
@@ -103,6 +105,7 @@ The default local endpoints are:
 - target inventory: `http://127.0.0.1:8000/api/targets`
 - schedule configuration: `http://127.0.0.1:8000/api/schedules`
 - occurrence history: `http://127.0.0.1:8000/api/occurrences`
+- retry history: `http://127.0.0.1:8000/api/retry-attempts`
 - run history: `http://127.0.0.1:8000/api/runs`
 - action history: `http://127.0.0.1:8000/api/actions`
 
@@ -124,6 +127,9 @@ GET  /api/occurrences
 POST /api/occurrences/attention
 GET  /api/occurrences/{execution_key}
 POST /api/occurrences/{execution_key}/execute
+POST /api/occurrences/{execution_key}/retries
+GET  /api/retry-attempts
+GET  /api/retry-attempts/{attempt_id}
 GET  /api/runs
 GET  /api/runs/{run_id}
 GET  /api/actions
@@ -147,9 +153,13 @@ Occurrence attention inspection provides read-only operational visibility. The c
 
 Attention inspection derives the same deterministic keys used for claims but creates no records, changes no state, invokes no collector, and performs no recovery. The bounded lookback prevents an old schedule from generating an unbounded response.
 
+Retry attempts are separate operator-created evidence records. A retry is allowed only when the original occurrence is terminal `failed`, the linked schedule and target still exist and are enabled, and fewer than three prior attempts exist. Every request requires a non-blank reason. WATCH creates the next deterministic attempt atomically in `executing` before collection, then stores `completed`, `partial`, or `failed` plus any generated `run_id`.
+
+The retry endpoint never edits or deletes the original occurrence. Stale `executing` occurrences cannot be retried because the original process may still be active. There is no automatic retry timer: each attempt is a deliberate operator action, and attempt four is rejected.
+
 The direct target execution endpoint continues to operate on one enabled registered target per request and persists the resulting run, findings, actions, history, and reports.
 
-The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, and action writes affect local WATCH state only. Attention inspection is read-only against that workspace.
+The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, retry-attempt, and action writes affect local WATCH state only. Attention inspection is read-only against that workspace.
 
 ## Automated proof
 
@@ -162,7 +172,8 @@ Every pull request runs:
 - FastAPI contract and OpenAPI tests;
 - Windows operator verification;
 - Windows review ZIP export;
-- Linux and Windows proof-artifact upload.
+- Linux and Windows proof-artifact upload;
+- deterministic Playwright semantic and screenshot proof for the operator workbench.
 
 Superseded branch runs are cancelled automatically so only the latest commit consumes CI capacity.
 
@@ -187,6 +198,11 @@ Current controls include:
 - read-only missed-boundary and stale-execution visibility;
 - bounded 1–100 occurrence attention lookback and 1–1,440 minute grace period;
 - no state change, claim, collection, or retry from attention inspection;
+- retries restricted to terminal failed occurrences;
+- separate retry-attempt evidence with a required operator reason;
+- a hard maximum of three attempts per occurrence;
+- original occurrence evidence unchanged by retries;
+- stale executing work excluded from retries;
 - HTTP and HTTPS only through the validated target model;
 - disabled targets rejected before collection;
 - public-address validation before each redirect hop;
@@ -199,22 +215,22 @@ Current controls include:
 - normal TLS certificate and hostname verification;
 - API workspace configured at startup rather than supplied by requests;
 - controlled local-only action state transitions;
-- no authentication bypass, form submission, crawling, credential storage, retries, automatic recovery, Task Scheduler installation, batch execution, or external modification.
+- no authentication bypass, form submission, crawling, credential storage, automatic retries, Task Scheduler installation, batch execution, or external modification.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
 ```text
-src/watch/           domain, targets, schedules, occurrences, actions, workflow, collectors, storage, reports, CLI, and API
+src/watch/           domain, targets, schedules, occurrences, retries, actions, workflow, collectors, storage, reports, CLI, and API
 tests/               automated proof
 samples/             public-safe sample inputs
 scripts/             setup, verification, demo, API, and review export
 docs/                architecture, roadmap, safety, and milestone evidence
-.github/workflows/   Linux and Windows GitHub verification
+.github/workflows/   Linux, Windows, and visual GitHub verification
 .watch-data/         generated local state, ignored by Git
 ```
 
 ## Next milestone
 
-M3.2 now includes deterministic claims, explicit at-most-once execution, and read-only missed/interrupted visibility. The next bounded slice is an explicit operator-controlled retry policy with separate attempt evidence, before any Windows Task Scheduler installation.
+M3.2 now includes deterministic claims, explicit at-most-once execution, read-only missed/interrupted visibility, and bounded operator-controlled retry attempts. The next bounded slice is a dry-run due-work planner and one-shot runner contract before any Windows Task Scheduler installation.
