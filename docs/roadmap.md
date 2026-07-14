@@ -130,10 +130,21 @@
 
 ### M4.5 — Operator navigation and drill-down
 
-- [ ] Consistent navigation to all operator pages
-- [ ] Target-focused detail page
-- [ ] Target run, action, schedule, and change summary
-- [ ] Browser proof for target drill-down
+- [x] Consistent navigation to all operator pages
+- [x] Target-focused detail page
+- [x] Target configuration and status summary
+- [x] Target schedule, run, action, and change evidence
+- [x] Cross-page links into target detail
+- [x] Not-found and OpenAPI-exclusion tests
+- [x] Browser proof and target-detail screenshot
+
+### M4.6 — Interface usability and accessibility
+
+- [ ] Active-page navigation state
+- [ ] Responsive narrow-screen table handling
+- [ ] Severity and status visual hierarchy
+- [ ] Keyboard-focused browser proof
+- [ ] Accessible table captions and page landmarks review
 
 ## Deferred
 

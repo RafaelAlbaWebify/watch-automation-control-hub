@@ -100,14 +100,15 @@ def test_dashboard_exposes_operational_scheduling_and_change_evidence(
     runs = client.get("/runs")
     changes = client.get("/changes")
     actions = client.get("/actions")
+    target_detail = client.get("/targets/portfolio-demo")
     report = client.get(f"/reports/{changed_run_id}")
 
     assert dashboard.status_code == 200
     assert "Latest: completed" in dashboard.text
-    assert "Schedules" in dashboard.text
-    assert "Occurrences" in dashboard.text
-    assert "Open actions" in dashboard.text
+    assert "Target drill-down" in dashboard.text
+    assert 'href="/targets/portfolio-demo"' in dashboard.text
     assert "Portfolio Demo" in targets.text
+    assert 'href="/targets/portfolio-demo"' in targets.text
     assert "portfolio-hourly" in schedules.text
     assert "60 minutes" in schedules.text
     assert "portfolio-hourly" in occurrences.text
@@ -117,15 +118,42 @@ def test_dashboard_exposes_operational_scheduling_and_change_evidence(
     assert changed_run_id in runs.text
     assert "Open report" in runs.text
     assert changes.status_code == 200
-    assert "Change timeline" in changes.text
     assert baseline_run_id in changes.text
     assert changed_run_id in changes.text
     assert "baseline evidence" in changes.text
     assert "http_status" in changes.text
     assert "Previous run" in changes.text
     assert "UNEXPECTED_HTTP_STATUS" in actions.text
+    assert target_detail.status_code == 200
+    assert "Target summary" in target_detail.text
+    assert "portfolio-hourly" in target_detail.text
+    assert "Run and change history" in target_detail.text
+    assert "http_status" in target_detail.text
+    assert "UNEXPECTED_HTTP_STATUS" in target_detail.text
     assert report.status_code == 200
     assert "WATCH Operational Report" in report.text
+
+
+def test_all_operator_pages_share_complete_navigation(tmp_path: Path) -> None:
+    _seed_workspace(tmp_path)
+    client = TestClient(create_app(tmp_path))
+
+    for path in (
+        "/",
+        "/targets",
+        "/targets/portfolio-demo",
+        "/schedules",
+        "/occurrences",
+        "/attention",
+        "/runs",
+        "/changes",
+        "/actions",
+    ):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert 'href="/changes">Changes</a>' in response.text
+        assert 'href="/targets">Targets</a>' in response.text
+        assert 'href="/docs">API</a>' in response.text
 
 
 def test_dashboard_keeps_json_api_and_openapi_contract_available(tmp_path: Path) -> None:
@@ -135,14 +163,18 @@ def test_dashboard_keeps_json_api_and_openapi_contract_available(tmp_path: Path)
         "status": "ok",
         "mode": "local-operator",
     }
-    assert client.get("/openapi.json").status_code == 200
-    assert "/" not in client.get("/openapi.json").json()["paths"]
-    assert "/changes" not in client.get("/openapi.json").json()["paths"]
+    paths = client.get("/openapi.json").json()["paths"]
+    assert "/" not in paths
+    assert "/changes" not in paths
+    assert "/targets/{target_id}" not in paths
 
 
-def test_report_page_returns_not_found_for_unknown_run(tmp_path: Path) -> None:
+def test_unknown_operator_resources_return_not_found(tmp_path: Path) -> None:
     client = TestClient(create_app(tmp_path))
 
-    response = client.get("/reports/unknown")
-    assert response.status_code == 404
-    assert response.json() == {"detail": "report not found"}
+    report = client.get("/reports/unknown")
+    target = client.get("/targets/unknown")
+    assert report.status_code == 404
+    assert report.json() == {"detail": "report not found"}
+    assert target.status_code == 404
+    assert target.json() == {"detail": "target not found"}
