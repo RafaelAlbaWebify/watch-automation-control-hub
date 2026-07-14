@@ -93,23 +93,29 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install Windows environment
+      - name: Install Windows dependencies
         shell: pwsh
-        run: .\WATCH.ps1 setup
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
 
       - name: Windows lint
         shell: pwsh
-        run: .\.venv\Scripts\python.exe -m ruff check .
+        run: python -m ruff check .
 
       - name: Windows type check
         shell: pwsh
-        run: .\.venv\Scripts\python.exe -m mypy src
+        run: python -m mypy src
 
       - name: Windows tests
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-          .\.venv\Scripts\python.exe -m pytest --junitxml=artifacts\test-results.xml
+          python -m pytest --junitxml=artifacts\test-results.xml
+
+      - name: Run WATCH verification command
+        shell: pwsh
+        run: .\WATCH.ps1 verify
 
       - name: Run WATCH demo
         shell: pwsh
