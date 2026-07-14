@@ -24,7 +24,7 @@ WATCH currently supports:
 local target inventory
   -> explicit single-target execution
   -> DNS resolution and public-address validation
-  -> bounded HTTP request and redirect inspection
+  -> address-pinned HTTP request and redirect inspection
   -> response timing and page-title extraction
   -> TLS certificate expiry inspection
   -> deterministic findings
@@ -46,7 +46,7 @@ Collected evidence includes:
 - TLS certificate days remaining;
 - structured DNS, HTTP, timeout, and TLS errors.
 
-The TLS connection uses an already validated address while preserving the original hostname for SNI and certificate hostname verification.
+For each HTTP redirect hop, WATCH resolves and validates the hostname, connects directly to a validated public IP, and preserves the original hostname in the HTTP Host header and TLS SNI/certificate verification. TLS expiry inspection uses the same validated-address boundary.
 
 ## Quick start on Windows
 
@@ -144,15 +144,16 @@ Current controls include:
 - HTTP and HTTPS only through the validated target model;
 - disabled targets rejected before collection;
 - public-address validation before each redirect hop;
-- blocking of private, loopback, link-local, reserved, and other non-public addresses;
+- direct HTTP connection to the selected validated IPv4 or IPv6 address;
+- original Host header and TLS SNI/certificate hostname verification preserved;
+- blocking of private, loopback, link-local, reserved, and mixed public/private DNS answers;
+- environment-derived proxy routing disabled for the internal live collector;
 - a five-redirect limit;
 - explicit 1–60 second timeouts;
 - normal TLS certificate and hostname verification;
 - API workspace configured at startup rather than supplied by requests;
 - controlled local-only action state transitions;
 - no authentication bypass, form submission, crawling, credential storage, scheduling, batch execution, or external modification.
-
-Known limitation: the HTTP library performs its own DNS resolution after validation, so transport-level HTTP address pinning remains tracked in Issue #11. TLS inspection is already pinned to a validated address.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
 
@@ -170,4 +171,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-M2 is complete as a bounded local operator API. Before broader recurring or multi-target execution, WATCH should harden HTTP transport address pinning and then define M3 scheduling, idempotency, retry, and missed-run contracts.
+M2 and HTTP transport hardening are complete as bounded foundations. The next milestone is M3 design for schedules, idempotent execution, retry policy, missed-run visibility, and Windows Task Scheduler integration.
