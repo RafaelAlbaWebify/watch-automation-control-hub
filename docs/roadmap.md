@@ -89,15 +89,27 @@
 
 ## M4 — Operator interface
 
-- [ ] Target inventory
+### M4.1 — Read-only operator dashboard
+
+- [x] Combined local workbench preserving the existing JSON API
+- [x] Operational summary dashboard
+- [x] Target inventory with latest-run state
+- [x] Run history with finding counts, changes, and report links
+- [x] Pending and historical action visibility with stable finding codes
+- [x] Human-readable report access
+- [x] Empty-state and populated-state route tests
+- [x] Linux and Windows CI proof
+
+### M4.2 — Remaining operator views and browser proof
+
 - [ ] Schedule inventory
 - [ ] Occurrence history
 - [ ] Attention visibility
-- [ ] Run history
 - [ ] Change timeline
-- [ ] Pending actions
-- [ ] Report access
-- [ ] Visual audit automation
+- [ ] Deterministic sample workspace for browser proof
+- [ ] Playwright semantic workflow tests
+- [ ] CI-generated dashboard screenshots
+- [ ] Browser trace retention on failure
 
 ## Deferred
 

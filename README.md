@@ -38,6 +38,7 @@ local target inventory
   -> immutable run history
   -> Markdown and JSON reports
   -> local operator API
+  -> read-only operator dashboard
 ```
 
 Collected evidence includes:
@@ -90,13 +91,23 @@ Generated evidence is stored below `.watch-data`:
 └── reports/
 ```
 
-## Run the local operator API
+## Run the local operator workbench
 
 ```powershell
 .\WATCH.ps1 api
 ```
 
-The default local endpoints are:
+The command starts the combined read-only dashboard and existing JSON API on loopback.
+
+Default operator pages:
+
+- dashboard: `http://127.0.0.1:8000/`
+- target inventory: `http://127.0.0.1:8000/targets`
+- run history: `http://127.0.0.1:8000/runs`
+- action history: `http://127.0.0.1:8000/actions`
+- human-readable report: `http://127.0.0.1:8000/reports/{run_id}`
+
+Default API endpoints:
 
 - API health: `http://127.0.0.1:8000/api/health`
 - interactive OpenAPI documentation: `http://127.0.0.1:8000/docs`
@@ -149,7 +160,7 @@ Attention inspection derives the same deterministic keys used for claims but cre
 
 The direct target execution endpoint continues to operate on one enabled registered target per request and persists the resulting run, findings, actions, history, and reports.
 
-The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, and action writes affect local WATCH state only. Attention inspection is read-only against that workspace.
+The API and dashboard read and write only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, and action writes affect local WATCH state only. Dashboard pages are read-only against that workspace.
 
 ## Automated proof
 
@@ -160,6 +171,7 @@ Every pull request runs:
 - pytest with coverage;
 - deterministic demo generation;
 - FastAPI contract and OpenAPI tests;
+- read-only dashboard route and empty-state tests;
 - Windows operator verification;
 - Windows review ZIP export;
 - Linux and Windows proof-artifact upload.
@@ -199,6 +211,7 @@ Current controls include:
 - normal TLS certificate and hostname verification;
 - API workspace configured at startup rather than supplied by requests;
 - controlled local-only action state transitions;
+- read-only dashboard pages with no execution or state-transition controls;
 - no authentication bypass, form submission, crawling, credential storage, retries, automatic recovery, Task Scheduler installation, batch execution, or external modification.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
@@ -206,10 +219,10 @@ See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md]
 ## Repository layout
 
 ```text
-src/watch/           domain, targets, schedules, occurrences, actions, workflow, collectors, storage, reports, CLI, and API
-tests/               automated proof
+src/watch/           domain, services, collectors, storage, reports, CLI, API, and web workbench
+ tests/              automated unit, API, and dashboard route proof
 samples/             public-safe sample inputs
-scripts/             setup, verification, demo, API, and review export
+scripts/             setup, verification, demo, workbench launch, and review export
 docs/                architecture, roadmap, safety, and milestone evidence
 .github/workflows/   Linux and Windows GitHub verification
 .watch-data/         generated local state, ignored by Git
@@ -217,4 +230,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-M3.2 now includes deterministic claims, explicit at-most-once execution, and read-only missed/interrupted visibility. The next bounded slice is an explicit operator-controlled retry policy with separate attempt evidence, before any Windows Task Scheduler installation.
+The next bounded slice is M4.2: add a deterministic sample workspace, Playwright semantic browser tests, CI-generated dashboard screenshots, and failure traces before expanding the interface or returning to Task Scheduler and retry work.
