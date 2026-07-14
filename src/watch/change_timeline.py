@@ -102,7 +102,10 @@ def mount_change_timeline_routes(app: FastAPI, workspace: Path) -> None:
 </header>
 <main>
   <h2>Change timeline</h2>
-  <p class="note">Read-only chronology built from immutable runs, previous-run links, findings, actions, and reports.</p>
+  <p class="note">
+    Read-only chronology built from immutable runs, previous-run links,
+    findings, actions, and reports.
+  </p>
   {body}
 </main>
 </body>
