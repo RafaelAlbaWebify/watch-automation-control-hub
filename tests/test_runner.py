@@ -74,15 +74,15 @@ def test_due_work_planner_classifies_schedules_without_writes(tmp_path: Path) ->
     for schedule in schedules:
         store.create_schedule(schedule)
 
-    claimed_at = datetime(2026, 7, 14, 9, 0, tzinfo=UTC)
-    claimed_key = execution_key("b-claimed", claimed_at)
+    latest_boundary = datetime(2026, 7, 14, 11, 0, tzinfo=UTC)
+    claimed_key = execution_key("b-claimed", latest_boundary)
     store.claim_occurrence(
         ScheduleOccurrence(
             execution_key=claimed_key,
             schedule_id="b-claimed",
             target_id="ready-target",
-            occurrence_at=claimed_at,
-            claimed_at=datetime(2026, 7, 14, 9, 1, tzinfo=UTC),
+            occurrence_at=latest_boundary,
+            claimed_at=datetime(2026, 7, 14, 11, 1, tzinfo=UTC),
         )
     )
     before = _snapshot(tmp_path)
@@ -99,16 +99,15 @@ def test_due_work_planner_classifies_schedules_without_writes(tmp_path: Path) ->
     ]
     assert [item.status for item in plan] == [
         DuePlanStatus.READY_TO_CLAIM,
-        DuePlanStatus.READY_TO_CLAIM,
+        DuePlanStatus.ALREADY_CLAIMED,
         DuePlanStatus.SCHEDULE_DISABLED,
         DuePlanStatus.TARGET_MISSING,
         DuePlanStatus.TARGET_DISABLED,
         DuePlanStatus.BEFORE_START,
     ]
-    assert plan[0].occurrence_at == datetime(2026, 7, 14, 11, 0, tzinfo=UTC)
-    assert plan[0].execution_key == execution_key(
-        "a-ready", datetime(2026, 7, 14, 11, 0, tzinfo=UTC)
-    )
+    assert plan[0].occurrence_at == latest_boundary
+    assert plan[0].execution_key == execution_key("a-ready", latest_boundary)
+    assert plan[1].existing_occurrence_status is not None
     assert _snapshot(tmp_path) == before
 
 
