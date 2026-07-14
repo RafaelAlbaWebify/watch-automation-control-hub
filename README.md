@@ -20,6 +20,7 @@ local target inventory
   -> explicit at-most-once occurrence execution
   -> missed-boundary and stale-execution visibility
   -> bounded operator-controlled retry attempts
+  -> read-only retry-attempt evidence visibility
   -> DNS and public-address validation
   -> address-pinned HTTP and redirect inspection
   -> response timing, page title, and TLS expiry evidence
@@ -92,12 +93,13 @@ Operator pages:
 - schedule inventory: `http://127.0.0.1:8000/schedules`
 - occurrence history: `http://127.0.0.1:8000/occurrences`
 - missed/stale attention: `http://127.0.0.1:8000/attention`
+- retry-attempt history: `http://127.0.0.1:8000/attempts`
 - run history: `http://127.0.0.1:8000/runs`
 - change timeline: `http://127.0.0.1:8000/changes`
 - action history: `http://127.0.0.1:8000/actions`
 - human-readable report: `http://127.0.0.1:8000/reports/{run_id}`
 
-Every operator page uses the same navigation. Target links from the dashboard, schedules, occurrences, attention, runs, changes, and actions open a consolidated target page showing configuration, schedules, run/change history, findings, resulting actions, and report links.
+Every operator page uses the same navigation. Target links from the dashboard, schedules, occurrences, attention, runs, changes, and actions open a consolidated target page showing configuration, schedules, run/change history, findings, resulting actions, and report links. The Attempts page provides read-only evidence for each operator-controlled retry, including its reason, status, timestamps, run link, and error.
 
 Default API endpoints:
 
@@ -122,6 +124,8 @@ Attention inspection is read-only. It reports `missed-unclaimed` boundaries and 
 
 Retries are explicit operator actions against terminal `failed` occurrences only. Each request must include a non-blank reason, and WATCH stores that reason on a separate attempt record before collection. Attempts are numbered independently from 1 to 3. The original occurrence remains byte-for-byte unchanged after a completed, partial, or failed retry. Stale `executing` occurrences are never retried because the original process may still be active.
 
+The Attempts workbench page is visibility-only. It escapes stored reason and error text, links run-backed attempts to their reports, and exposes no retry, edit, delete, or state-transition control.
+
 ## Automated proof
 
 Every pull request runs:
@@ -131,10 +135,10 @@ Every pull request runs:
 - pytest with coverage;
 - deterministic demo generation;
 - FastAPI and OpenAPI contract tests;
-- read-only route, navigation, not-found, and target-detail tests;
+- read-only route, navigation, not-found, target-detail, and attempt-history tests;
 - Playwright Chromium semantic navigation;
 - browser console-error validation;
-- screenshots for dashboard, target detail, schedules, occurrences, attention, runs, changes, actions, and reports;
+- screenshots for dashboard, target detail, schedules, occurrences, attention, attempts, runs, changes, actions, and reports;
 - Playwright trace retention on browser failure;
 - Windows operator verification and review ZIP export;
 - Linux, Windows, and visual proof-artifact upload.
@@ -151,7 +155,7 @@ See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md]
 
 ```text
 src/watch/           domain, services, collectors, storage, reports, CLI, API, and workbench
-tests/               unit, API, route, navigation, and target-detail proof
+tests/               unit, API, route, navigation, target-detail, and attempt-history proof
 samples/             public-safe sample inputs
 scripts/             setup, verification, demo, browser proof, launch, and review export
 docs/                architecture, roadmap, safety, and milestone evidence
@@ -161,4 +165,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next bounded interface slice is read-only operator attempt visibility and browser proof, followed by M3.3 one-shot runner planning before any Windows Task Scheduler installation.
+The next bounded recurring-execution slice is M3.3: a read-only due-work planner and explicit one-shot runner contract before any Windows Task Scheduler installation.

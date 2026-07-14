@@ -5,6 +5,7 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
+from watch.attempts import AttemptStatus, AttemptStore, ExecutionAttempt, attempt_id
 from watch.models import IntervalSchedule, ObservationSet, OccurrenceStatus, Target
 from watch.occurrences import OccurrenceService
 from watch.schedules import ScheduleService
@@ -113,6 +114,30 @@ def prepare(workspace: Path) -> None:
         }
     )
     store.update_occurrence(stale)
+
+    attempts = AttemptStore(workspace)
+    completed_attempt = ExecutionAttempt(
+        attempt_id=attempt_id(occurrence.execution_key, 1),
+        execution_key=occurrence.execution_key,
+        attempt_number=1,
+        reason="Operator confirmed the upstream dependency had recovered.",
+        status=AttemptStatus.COMPLETED,
+        started_at=datetime(2026, 1, 1, 2, 0, tzinfo=UTC),
+        finished_at=datetime(2026, 1, 1, 2, 1, tzinfo=UTC),
+        run_id=changed_run.run_id,
+    )
+    failed_attempt = ExecutionAttempt(
+        attempt_id=attempt_id(occurrence.execution_key, 2),
+        execution_key=occurrence.execution_key,
+        attempt_number=2,
+        reason="Operator requested a second controlled validation.",
+        status=AttemptStatus.FAILED,
+        started_at=datetime(2026, 1, 1, 3, 0, tzinfo=UTC),
+        finished_at=datetime(2026, 1, 1, 3, 1, tzinfo=UTC),
+        error="RuntimeError: deterministic retry evidence",
+    )
+    attempts.create(completed_attempt)
+    attempts.create(failed_attempt)
 
 
 def main() -> None:
