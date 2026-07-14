@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
+from watch.attempts import AttemptStore
 from watch.models import (
     ActionStatus,
     IntervalSchedule,
@@ -148,12 +149,14 @@ def _run_table(runs: list[WorkflowRun], caption: str) -> str:
 
 def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     store = JsonStore(workspace)
+    attempt_store = AttemptStore(workspace)
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def dashboard() -> HTMLResponse:
         targets = store.list_targets()
         schedules = store.list_schedules()
         occurrences = store.list_occurrences()
+        attempts = attempt_store.list()
         runs = store.list_runs()
         actions = store.list_actions()
         enabled = sum(target.enabled for target in targets)
@@ -191,6 +194,10 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
   <article class="card">
     <h3>Occurrences</h3><p class="metric">{len(occurrences)}</p>
     <p>persisted execution records</p>
+  </article>
+  <article class="card">
+    <h3>Retry attempts</h3><p class="metric">{len(attempts)}</p>
+    <p><a href="/attempts">review attempt evidence</a></p>
   </article>
   <article class="card">
     <h3>Runs</h3><p class="metric">{len(runs)}</p><p>Latest: {badge(latest)}</p>
