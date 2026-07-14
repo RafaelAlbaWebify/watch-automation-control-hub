@@ -140,11 +140,13 @@
 
 ### M4.6 — Interface usability and accessibility
 
-- [ ] Active-page navigation state
-- [ ] Responsive narrow-screen table handling
-- [ ] Severity and status visual hierarchy
-- [ ] Keyboard-focused browser proof
-- [ ] Accessible table captions and page landmarks review
+- [x] Active-page navigation state
+- [x] Responsive narrow-screen table handling
+- [x] Primary navigation and main-content landmarks
+- [x] Keyboard-visible skip link and focus styling
+- [x] Keyboard-focused Playwright proof
+- [ ] Apply severity and status visual hierarchy to every evidence table
+- [ ] Add accessible captions to every evidence table
 
 ## Deferred
 
