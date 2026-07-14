@@ -29,10 +29,14 @@
 - [x] Safe single-target live CLI with bounded timeouts and redirects
 - [x] Linux and Windows proof artifacts
 
-### M1 evidence improvements still open
+### M1 evidence improvements
 
-- [ ] Capture selected response headers and content metadata
-- [ ] Add a sanitized committed example of a live-generated report
+- [x] Capture normalized content type and actual body byte count
+- [x] Persist only an explicit allowlist of public response headers
+- [x] Bound persisted response-header values
+- [x] Prove that cookies and arbitrary trace headers are excluded
+- [x] Add a sanitized deterministic committed report example
+- [ ] Add a sanitized committed example produced by an explicitly approved live run
 
 ## M2 — Operator API
 
