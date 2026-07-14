@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
 class Severity(StrEnum):
@@ -77,6 +77,8 @@ class IntervalSchedule(BaseModel):
 
 
 class IntervalScheduleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     enabled: bool = True
     start_at: datetime
     interval_minutes: int = Field(ge=5, le=10080)
