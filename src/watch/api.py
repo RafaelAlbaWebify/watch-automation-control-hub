@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from watch.actions import ActionNotFoundError, ActionService, InvalidActionTransitionError
 from watch.collectors import WebsiteCollector
@@ -15,9 +16,17 @@ from watch.models import (
     IntervalScheduleUpdate,
     ObservationSet,
     OperationalAction,
+    ScheduleOccurrence,
     Target,
     TargetUpdate,
     WorkflowRun,
+)
+from watch.occurrences import (
+    EvaluationTimeError,
+    OccurrenceNotFoundError,
+    OccurrenceScheduleNotFoundError,
+    OccurrenceService,
+    normalize_evaluation_time,
 )
 from watch.schedules import (
     ScheduleAlreadyExistsError,
@@ -43,17 +52,32 @@ class ExecutionResponse(BaseModel):
     actions: list[OperationalAction]
 
 
+class OccurrenceEvaluationRequest(BaseModel):
+    evaluated_at: datetime
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def validate_evaluated_at(cls, value: datetime) -> datetime:
+        return normalize_evaluation_time(value)
+
+
+class OccurrenceEvaluationResponse(BaseModel):
+    occurrence: ScheduleOccurrence | None
+    result: str
+
+
 def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     store = JsonStore(workspace)
     actions = ActionService(store)
     targets = TargetService(store)
     schedules = ScheduleService(store)
+    occurrences = OccurrenceService(store)
     website_collector: Collector = collector or WebsiteCollector()
     app = FastAPI(
         title="WATCH Operator API",
-        version="0.7.0",
+        version="0.8.0",
         description=(
-            "Local operator access to WATCH targets, schedule configuration, "
+            "Local operator access to WATCH targets, schedules, occurrence claims, "
             "execution, evidence, and actions."
         ),
     )
@@ -146,6 +170,36 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="schedule not found") from exc
         except ScheduleTargetNotFoundError as exc:
             raise HTTPException(status_code=404, detail="target not found") from exc
+
+    @app.post(
+        "/api/schedules/{schedule_id}/occurrences/evaluate",
+        response_model=OccurrenceEvaluationResponse,
+    )
+    def evaluate_occurrence(
+        schedule_id: str,
+        request: OccurrenceEvaluationRequest,
+    ) -> OccurrenceEvaluationResponse:
+        try:
+            occurrence, result = occurrences.evaluate(schedule_id, request.evaluated_at)
+        except OccurrenceScheduleNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="schedule not found") from exc
+        except EvaluationTimeError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return OccurrenceEvaluationResponse(occurrence=occurrence, result=result)
+
+    @app.get("/api/occurrences", response_model=list[ScheduleOccurrence])
+    def list_occurrences() -> list[ScheduleOccurrence]:
+        return occurrences.list()
+
+    @app.get(
+        "/api/occurrences/{execution_key}",
+        response_model=ScheduleOccurrence,
+    )
+    def get_occurrence(execution_key: str) -> ScheduleOccurrence:
+        try:
+            return occurrences.get(execution_key)
+        except OccurrenceNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="occurrence not found") from exc
 
     @app.get("/api/runs", response_model=list[WorkflowRun])
     def list_runs() -> list[WorkflowRun]:
