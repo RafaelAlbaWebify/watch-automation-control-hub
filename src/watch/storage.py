@@ -6,7 +6,13 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from watch.models import IntervalSchedule, OperationalAction, Target, WorkflowRun
+from watch.models import (
+    IntervalSchedule,
+    OperationalAction,
+    ScheduleOccurrence,
+    Target,
+    WorkflowRun,
+)
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -16,12 +22,14 @@ class JsonStore:
         self.workspace = workspace
         self.targets_dir = workspace / "targets"
         self.schedules_dir = workspace / "schedules"
+        self.occurrences_dir = workspace / "occurrences"
         self.runs_dir = workspace / "runs"
         self.actions_dir = workspace / "actions"
         self.reports_dir = workspace / "reports"
         for directory in (
             self.targets_dir,
             self.schedules_dir,
+            self.occurrences_dir,
             self.runs_dir,
             self.actions_dir,
             self.reports_dir,
@@ -33,6 +41,11 @@ class JsonStore:
         temporary = path.with_suffix(f"{path.suffix}.tmp")
         temporary.write_text(model.model_dump_json(indent=2), encoding="utf-8")
         temporary.replace(path)
+
+    @staticmethod
+    def _create_exclusive(path: Path, model: BaseModel) -> None:
+        with path.open("x", encoding="utf-8") as file:
+            file.write(model.model_dump_json(indent=2))
 
     @staticmethod
     def _read(path: Path, model_type: type[ModelT]) -> ModelT:
@@ -84,6 +97,25 @@ class JsonStore:
             for path in self.schedules_dir.glob("*.json")
         ]
         return sorted(schedules, key=lambda schedule: schedule.schedule_id)
+
+    def claim_occurrence(self, occurrence: ScheduleOccurrence) -> Path:
+        path = self.occurrences_dir / f"{occurrence.execution_key}.json"
+        self._create_exclusive(path, occurrence)
+        return path
+
+    def get_occurrence(self, execution_key: str) -> ScheduleOccurrence | None:
+        path = self.occurrences_dir / f"{execution_key}.json"
+        return self._read(path, ScheduleOccurrence) if path.is_file() else None
+
+    def list_occurrences(self) -> list[ScheduleOccurrence]:
+        occurrences = [
+            self._read(path, ScheduleOccurrence)
+            for path in self.occurrences_dir.glob("*.json")
+        ]
+        return sorted(
+            occurrences,
+            key=lambda occurrence: (occurrence.occurrence_at, occurrence.execution_key),
+        )
 
     def save_run(self, run: WorkflowRun) -> Path:
         path = self.runs_dir / f"{run.run_id}.json"
