@@ -18,12 +18,7 @@ from watch.models import (
 )
 from watch.occurrences import OccurrenceAttentionService
 from watch.storage import JsonStore
-from watch.web_layout import page
-
-_RUN_HEADER = (
-    "<table><thead><tr><th>Run</th><th>Target</th><th>Status</th>"
-    "<th>Findings</th><th>Changes</th><th>Report</th></tr></thead><tbody>"
-)
+from watch.web_layout import badge, page, table
 
 
 def _target_rows(targets: list[Target], runs: list[WorkflowRun]) -> str:
@@ -41,8 +36,8 @@ def _target_rows(targets: list[Target], runs: list[WorkflowRun]) -> str:
             f'<td><a href="{target_path}">{escape(target.name)}</a></td>'
             f"<td><code>{escape(target.target_id)}</code></td>"
             f"<td>{escape(str(target.url))}</td>"
-            f'<td><span class="badge">{state}</span></td>'
-            f"<td>{escape(latest_status)}</td>"
+            f"<td>{badge(state)}</td>"
+            f"<td>{badge(latest_status)}</td>"
             "</tr>"
         )
     return "".join(rows)
@@ -57,7 +52,7 @@ def _schedule_rows(schedules: list[IntervalSchedule]) -> str:
             f"<td><code>{escape(schedule.schedule_id)}</code></td>"
             f'<td><a href="/targets/{escape(schedule.target_id)}">'
             f"{escape(schedule.target_id)}</a></td>"
-            f'<td><span class="badge">{state}</span></td>'
+            f"<td>{badge(state)}</td>"
             f"<td>{escape(schedule.start_at.isoformat())}</td>"
             f"<td>{schedule.interval_minutes} minutes</td>"
             "</tr>"
@@ -81,7 +76,7 @@ def _occurrence_rows(occurrences: list[ScheduleOccurrence]) -> str:
             f'<td><a href="/targets/{escape(occurrence.target_id)}">'
             f"{escape(occurrence.target_id)}</a></td>"
             f"<td>{escape(occurrence.occurrence_at.isoformat())}</td>"
-            f'<td><span class="badge">{escape(occurrence.status.value)}</span></td>'
+            f"<td>{badge(occurrence.status.value)}</td>"
             f"<td>{run}</td>"
             f"<td>{error}</td>"
             "</tr>"
@@ -94,7 +89,7 @@ def _attention_rows(attention: list[OccurrenceAttention]) -> str:
     for item in reversed(attention):
         rows.append(
             "<tr>"
-            f"<td>{escape(item.kind.value)}</td>"
+            f"<td>{badge(item.kind.value)}</td>"
             f"<td>{escape(item.schedule_id)}</td>"
             f'<td><a href="/targets/{escape(item.target_id)}">'
             f"{escape(item.target_id)}</a></td>"
@@ -115,7 +110,7 @@ def _run_rows(runs: list[WorkflowRun]) -> str:
             f"<td><code>{escape(run.run_id)}</code></td>"
             f'<td><a href="/targets/{escape(run.target_id)}">'
             f"{escape(run.target_id)}</a></td>"
-            f'<td><span class="badge">{escape(run.status.value)}</span></td>'
+            f"<td>{badge(run.status.value)}</td>"
             f"<td>{len(run.findings)}</td>"
             f"<td>{escape(changes)}</td>"
             f'<td><a href="/reports/{escape(run.run_id)}">Open report</a></td>'
@@ -129,8 +124,8 @@ def _action_rows(actions: list[OperationalAction]) -> str:
     for action in reversed(actions):
         rows.append(
             "<tr>"
-            f"<td>{escape(action.severity.value)}</td>"
-            f'<td><span class="badge">{escape(action.status.value)}</span></td>'
+            f"<td>{badge(action.severity.value)}</td>"
+            f"<td>{badge(action.status.value)}</td>"
             f'<td><a href="/targets/{escape(action.target_id)}">'
             f"{escape(action.target_id)}</a></td>"
             f"<td><code>{escape(action.finding_code)}</code></td>"
@@ -139,6 +134,16 @@ def _action_rows(actions: list[OperationalAction]) -> str:
             "</tr>"
         )
     return "".join(rows)
+
+
+def _run_table(runs: list[WorkflowRun], caption: str) -> str:
+    content = (
+        "<thead><tr><th>Run</th><th>Target</th><th>Status</th>"
+        "<th>Findings</th><th>Changes</th><th>Report</th></tr></thead><tbody>"
+        + _run_rows(runs)
+        + "</tbody>"
+    )
+    return table(content, caption)
 
 
 def mount_web_routes(app: FastAPI, workspace: Path) -> None:
@@ -159,7 +164,7 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
         )
         latest = runs[-1].status.value if runs else "no runs"
         latest_runs = (
-            _RUN_HEADER + _run_rows(runs[-5:]) + "</tbody></table>"
+            _run_table(runs[-5:], "Five most recent workflow runs")
             if runs
             else '<p class="empty">No runs have been recorded.</p>'
         )
@@ -188,7 +193,7 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     <p>persisted execution records</p>
   </article>
   <article class="card">
-    <h3>Runs</h3><p class="metric">{len(runs)}</p><p>Latest: {escape(latest)}</p>
+    <h3>Runs</h3><p class="metric">{len(runs)}</p><p>Latest: {badge(latest)}</p>
   </article>
   <article class="card">
     <h3>Open actions</h3><p class="metric">{open_actions}</p>
@@ -204,12 +209,14 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     def targets_page() -> HTMLResponse:
         targets = store.list_targets()
         runs = store.list_runs()
-        header = (
-            "<table><thead><tr><th>Name</th><th>ID</th><th>URL</th>"
+        content = (
+            "<thead><tr><th>Name</th><th>ID</th><th>URL</th>"
             "<th>State</th><th>Latest run</th></tr></thead><tbody>"
+            + _target_rows(targets, runs)
+            + "</tbody>"
         )
         body = (
-            header + _target_rows(targets, runs) + "</tbody></table>"
+            table(content, "Registered operational targets")
             if targets
             else '<p class="empty">No targets are registered.</p>'
         )
@@ -218,12 +225,14 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     @app.get("/schedules", response_class=HTMLResponse, include_in_schema=False)
     def schedules_page() -> HTMLResponse:
         schedules = store.list_schedules()
-        header = (
-            "<table><thead><tr><th>Schedule</th><th>Target</th><th>State</th>"
+        content = (
+            "<thead><tr><th>Schedule</th><th>Target</th><th>State</th>"
             "<th>Starts</th><th>Interval</th></tr></thead><tbody>"
+            + _schedule_rows(schedules)
+            + "</tbody>"
         )
         body = (
-            header + _schedule_rows(schedules) + "</tbody></table>"
+            table(content, "Configured recurring schedules")
             if schedules
             else '<p class="empty">No schedules are configured.</p>'
         )
@@ -232,13 +241,15 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     @app.get("/occurrences", response_class=HTMLResponse, include_in_schema=False)
     def occurrences_page() -> HTMLResponse:
         occurrences = store.list_occurrences()
-        header = (
-            "<table><thead><tr><th>Execution key</th><th>Schedule</th>"
+        content = (
+            "<thead><tr><th>Execution key</th><th>Schedule</th>"
             "<th>Target</th><th>Due at</th><th>Status</th><th>Run</th>"
             "<th>Error</th></tr></thead><tbody>"
+            + _occurrence_rows(occurrences)
+            + "</tbody>"
         )
         body = (
-            header + _occurrence_rows(occurrences) + "</tbody></table>"
+            table(content, "Persisted schedule occurrences")
             if occurrences
             else '<p class="empty">No schedule occurrences are recorded.</p>'
         )
@@ -252,19 +263,21 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
             grace_minutes=15,
             lookback_occurrences=10,
         )
-        header = (
-            "<table><thead><tr><th>Kind</th><th>Schedule</th><th>Target</th>"
-            "<th>Due at</th><th>Age</th><th>Details</th></tr></thead><tbody>"
-        )
         content = (
-            header + _attention_rows(attention) + "</tbody></table>"
+            "<thead><tr><th>Kind</th><th>Schedule</th><th>Target</th>"
+            "<th>Due at</th><th>Age</th><th>Details</th></tr></thead><tbody>"
+            + _attention_rows(attention)
+            + "</tbody>"
+        )
+        evidence = (
+            table(content, "Missed and stale occurrence attention")
             if attention
             else '<p class="empty">No missed or stale occurrences need attention.</p>'
         )
         body = (
             '<p class="note">Read-only inspection using a 15-minute grace period and '
             f"10-boundary lookback. Evaluated at {escape(evaluated_at.isoformat())}.</p>"
-            + content
+            + evidence
         )
         return page("Schedule attention", body)
 
@@ -272,7 +285,7 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     def runs_page() -> HTMLResponse:
         runs = store.list_runs()
         body = (
-            _RUN_HEADER + _run_rows(runs) + "</tbody></table>"
+            _run_table(runs, "Immutable workflow run history")
             if runs
             else '<p class="empty">No runs have been recorded.</p>'
         )
@@ -281,12 +294,14 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     @app.get("/actions", response_class=HTMLResponse, include_in_schema=False)
     def actions_page() -> HTMLResponse:
         actions = store.list_actions()
-        header = (
-            "<table><thead><tr><th>Severity</th><th>Status</th><th>Target</th>"
+        content = (
+            "<thead><tr><th>Severity</th><th>Status</th><th>Target</th>"
             "<th>Code</th><th>Summary</th><th>Source run</th></tr></thead><tbody>"
+            + _action_rows(actions)
+            + "</tbody>"
         )
         body = (
-            header + _action_rows(actions) + "</tbody></table>"
+            table(content, "Operational action history")
             if actions
             else '<p class="empty">No operational actions are pending.</p>'
         )
