@@ -135,6 +135,7 @@ def test_disabled_schedule_and_target_block_before_collection(tmp_path: Path) ->
     client, key = _claimed_occurrence(tmp_path / "schedule", collector)
     schedule = _schedule_payload(enabled=False)
     schedule.pop("schedule_id")
+    schedule.pop("target_id")
     assert client.put("/api/schedules/hourly-check", json=schedule).status_code == 200
     assert client.post(f"/api/occurrences/{key}/execute").status_code == 409
 
