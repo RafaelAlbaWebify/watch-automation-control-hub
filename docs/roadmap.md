@@ -92,7 +92,8 @@
 - [x] Hard maximum of three attempts
 - [x] Prior failure evidence preserved after recovery or repeated failure
 - [x] Linux and Windows service proof
-- [ ] Retry and attempt-history API
+- [x] Retry and attempt-history API
+- [x] OpenAPI and HTTP error-mapping proof
 - [ ] Read-only operator attempt visibility
 - [ ] Browser proof for attempt history
 
