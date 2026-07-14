@@ -3,8 +3,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from watch.models import ObservationSet, Target
-from watch.targets import TargetService
 from watch.storage import JsonStore
+from watch.targets import TargetService
 from watch.webapp import create_app
 from watch.workflow import execute_supplied_observations
 
