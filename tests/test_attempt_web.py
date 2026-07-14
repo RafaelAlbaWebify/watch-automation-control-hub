@@ -4,11 +4,12 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from watch.attempts import AttemptStatus, AttemptStore, ExecutionAttempt, attempt_id
+from watch.models import ObservationSet, Target
 from watch.webapp import create_app
 
 
 class NoopCollector:
-    def collect(self, target):  # type: ignore[no-untyped-def]
+    def collect(self, target: Target) -> ObservationSet:
         raise AssertionError("collector must not run for attempt visibility")
 
 
@@ -54,5 +55,5 @@ def test_attempt_page_renders_immutable_failure_and_recovery(tmp_path: Path) -> 
     assert "Immutable occurrence execution attempts" in response.text
     assert "RuntimeError: first failure" in response.text
     assert "run-recovered" in response.text
-    assert "badge-danger">failed" in response.text
-    assert "badge-success">completed" in response.text
+    assert 'badge-danger">failed' in response.text
+    assert 'badge-success">completed' in response.text
