@@ -7,6 +7,16 @@ from watch.models import ObservationSet, Target
 from watch.workflow import execute_supplied_observations
 
 
+class StubCollector:
+    def __init__(self, observations: ObservationSet) -> None:
+        self.observations = observations
+        self.calls: list[str] = []
+
+    def collect(self, target: Target) -> ObservationSet:
+        self.calls.append(target.target_id)
+        return self.observations
+
+
 def _target() -> Target:
     return Target(
         target_id="api-demo",
@@ -102,6 +112,70 @@ def test_target_inventory_rejects_conflicts_missing_and_invalid_data(
     ).status_code == 422
 
 
+def test_registered_target_can_execute_and_persist_evidence(tmp_path: Path) -> None:
+    collector = StubCollector(
+        ObservationSet(
+            http_status=503,
+            final_url="https://example.com/",
+            response_ms=2500,
+            tls_days_remaining=20,
+        )
+    )
+    client = TestClient(create_app(tmp_path, collector=collector))
+    assert client.post("/api/targets", json=_target_payload()).status_code == 201
+
+    response = client.post("/api/targets/inventory-demo/runs")
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["run"]["target_id"] == "inventory-demo"
+    assert payload["run"]["status"] == "completed"
+    assert len(payload["actions"]) == 3
+    assert collector.calls == ["inventory-demo"]
+
+    run_id = payload["run"]["run_id"]
+    persisted = TestClient(create_app(tmp_path)).get(f"/api/runs/{run_id}")
+    assert persisted.status_code == 200
+    assert TestClient(create_app(tmp_path)).get(
+        f"/api/reports/{run_id}.md"
+    ).status_code == 200
+
+
+def test_execution_rejects_missing_and_disabled_targets(tmp_path: Path) -> None:
+    collector = StubCollector(ObservationSet(http_status=200))
+    client = TestClient(create_app(tmp_path, collector=collector))
+
+    assert client.post("/api/targets/missing/runs").status_code == 404
+
+    payload = _target_payload()
+    payload["enabled"] = False
+    assert client.post("/api/targets", json=payload).status_code == 201
+    assert client.post("/api/targets/inventory-demo/runs").status_code == 409
+    assert collector.calls == []
+    assert client.get("/api/runs").json() == []
+
+
+def test_execution_preserves_partial_errors_and_previous_run_change(
+    tmp_path: Path,
+) -> None:
+    collector = StubCollector(
+        ObservationSet(errors=["HTTP_TIMEOUT: request exceeded configured timeout"])
+    )
+    client = TestClient(create_app(tmp_path, collector=collector))
+    assert client.post("/api/targets", json=_target_payload()).status_code == 201
+
+    first = client.post("/api/targets/inventory-demo/runs")
+    assert first.status_code == 201
+    assert first.json()["run"]["status"] == "partial"
+
+    collector.observations = ObservationSet(http_status=200, response_ms=100)
+    second = client.post("/api/targets/inventory-demo/runs")
+    assert second.status_code == 201
+    second_run = second.json()["run"]
+    assert second_run["previous_run_id"] == first.json()["run"]["run_id"]
+    assert "errors" in second_run["changed_fields"]
+    assert "http_status" in second_run["changed_fields"]
+
+
 def test_api_exposes_persisted_run_action_and_report(tmp_path: Path) -> None:
     run, actions, _ = execute_supplied_observations(
         _target(), ObservationSet(http_status=503, response_ms=2500), tmp_path
@@ -168,6 +242,7 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
         "/api/health",
         "/api/targets",
         "/api/targets/{target_id}",
+        "/api/targets/{target_id}/runs",
         "/api/runs",
         "/api/runs/{run_id}",
         "/api/actions",
@@ -177,5 +252,6 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
     }
     assert set(schema["paths"]["/api/targets"]) == {"get", "post"}
     assert set(schema["paths"]["/api/targets/{target_id}"]) == {"get", "put"}
+    assert set(schema["paths"]["/api/targets/{target_id}/runs"]) == {"post"}
     assert set(schema["paths"]["/api/actions/{action_id}/acknowledge"]) == {"post"}
     assert set(schema["paths"]["/api/actions/{action_id}/resolve"]) == {"post"}
