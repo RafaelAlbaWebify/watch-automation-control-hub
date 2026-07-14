@@ -97,6 +97,17 @@ def main() -> None:
             _assert_badge(page, "executing", "warning")
             page.screenshot(path=screenshots / "occurrences.png", full_page=True)
 
+            page.get_by_role("link", name="Attempts").click()
+            assert (
+                page.get_by_role("link", name="Attempts").get_attribute("aria-current")
+                == "page"
+            )
+            _assert_text(page, "Immutable occurrence execution attempts")
+            _assert_text(page, "deterministic upstream failure")
+            _assert_badge(page, "failed", "danger")
+            _assert_badge(page, "completed", "success")
+            page.screenshot(path=screenshots / "attempts.png", full_page=True)
+
             page.get_by_role("link", name="Attention").click()
             _assert_text(page, "Missed and stale occurrence attention")
             _assert_badge(page, "missed-unclaimed", "warning")
