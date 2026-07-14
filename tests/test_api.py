@@ -37,6 +37,16 @@ def _target_payload() -> dict[str, object]:
     }
 
 
+def _schedule_payload() -> dict[str, object]:
+    return {
+        "schedule_id": "hourly-demo",
+        "target_id": "inventory-demo",
+        "enabled": True,
+        "start_at": "2026-07-14T09:00:00+02:00",
+        "interval_minutes": 60,
+    }
+
+
 def _action_id(tmp_path: Path) -> str:
     _, actions, _ = execute_supplied_observations(
         _target(), ObservationSet(http_status=503), tmp_path
@@ -51,6 +61,7 @@ def test_empty_workspace_returns_empty_collections(tmp_path: Path) -> None:
         "mode": "local-operator",
     }
     assert client.get("/api/targets").json() == []
+    assert client.get("/api/schedules").json() == []
     assert client.get("/api/runs").json() == []
     assert client.get("/api/actions").json() == []
 
@@ -109,6 +120,89 @@ def test_target_inventory_rejects_conflicts_missing_and_invalid_data(
     invalid_update["timeout_seconds"] = 0
     assert client.put(
         "/api/targets/inventory-demo", json=invalid_update
+    ).status_code == 422
+
+
+def test_schedule_create_list_get_update_and_utc_normalization(tmp_path: Path) -> None:
+    collector = StubCollector(ObservationSet(http_status=200))
+    client = TestClient(create_app(tmp_path, collector=collector))
+    assert client.post("/api/targets", json=_target_payload()).status_code == 201
+
+    created = client.post("/api/schedules", json=_schedule_payload())
+    assert created.status_code == 201
+    assert created.json()["schedule_id"] == "hourly-demo"
+    assert created.json()["target_id"] == "inventory-demo"
+    assert created.json()["start_at"] == "2026-07-14T07:00:00Z"
+
+    assert client.get("/api/schedules").json()[0]["interval_minutes"] == 60
+    assert client.get("/api/schedules/hourly-demo").status_code == 200
+
+    updated = client.put(
+        "/api/schedules/hourly-demo",
+        json={
+            "enabled": False,
+            "start_at": "2026-07-15T08:30:00-04:00",
+            "interval_minutes": 120,
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["schedule_id"] == "hourly-demo"
+    assert updated.json()["target_id"] == "inventory-demo"
+    assert updated.json()["enabled"] is False
+    assert updated.json()["start_at"] == "2026-07-15T12:30:00Z"
+    assert updated.json()["interval_minutes"] == 120
+
+    persisted = TestClient(create_app(tmp_path)).get("/api/schedules/hourly-demo")
+    assert persisted.json()["target_id"] == "inventory-demo"
+    assert persisted.json()["interval_minutes"] == 120
+    assert collector.calls == []
+    assert client.get("/api/runs").json() == []
+
+
+def test_schedule_rejects_missing_target_duplicate_missing_and_invalid_data(
+    tmp_path: Path,
+) -> None:
+    client = TestClient(create_app(tmp_path))
+    payload = _schedule_payload()
+
+    assert client.post("/api/schedules", json=payload).status_code == 404
+    assert client.post("/api/targets", json=_target_payload()).status_code == 201
+    assert client.post("/api/schedules", json=payload).status_code == 201
+    assert client.post("/api/schedules", json=payload).status_code == 409
+    assert client.get("/api/schedules/missing").status_code == 404
+    assert client.put(
+        "/api/schedules/missing",
+        json={
+            "enabled": True,
+            "start_at": "2026-07-14T07:00:00Z",
+            "interval_minutes": 60,
+        },
+    ).status_code == 404
+
+    invalid_naive = dict(payload)
+    invalid_naive["schedule_id"] = "naive-time"
+    invalid_naive["start_at"] = "2026-07-14T07:00:00"
+    assert client.post("/api/schedules", json=invalid_naive).status_code == 422
+
+    invalid_short = dict(payload)
+    invalid_short["schedule_id"] = "too-frequent"
+    invalid_short["interval_minutes"] = 4
+    assert client.post("/api/schedules", json=invalid_short).status_code == 422
+
+    invalid_long = dict(payload)
+    invalid_long["schedule_id"] = "too-slow"
+    invalid_long["interval_minutes"] = 10081
+    assert client.post("/api/schedules", json=invalid_long).status_code == 422
+
+    immutable_fields = {
+        "schedule_id": "changed-id",
+        "target_id": "other-target",
+        "enabled": True,
+        "start_at": "2026-07-14T07:00:00Z",
+        "interval_minutes": 60,
+    }
+    assert client.put(
+        "/api/schedules/hourly-demo", json=immutable_fields
     ).status_code == 422
 
 
@@ -243,6 +337,8 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
         "/api/targets",
         "/api/targets/{target_id}",
         "/api/targets/{target_id}/runs",
+        "/api/schedules",
+        "/api/schedules/{schedule_id}",
         "/api/runs",
         "/api/runs/{run_id}",
         "/api/actions",
@@ -253,5 +349,7 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
     assert set(schema["paths"]["/api/targets"]) == {"get", "post"}
     assert set(schema["paths"]["/api/targets/{target_id}"]) == {"get", "put"}
     assert set(schema["paths"]["/api/targets/{target_id}/runs"]) == {"post"}
+    assert set(schema["paths"]["/api/schedules"]) == {"get", "post"}
+    assert set(schema["paths"]["/api/schedules/{schedule_id}"]) == {"get", "put"}
     assert set(schema["paths"]["/api/actions/{action_id}/acknowledge"]) == {"post"}
     assert set(schema["paths"]["/api/actions/{action_id}/resolve"]) == {"post"}
