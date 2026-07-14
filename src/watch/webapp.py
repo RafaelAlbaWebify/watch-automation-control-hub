@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import uvicorn
 from fastapi import FastAPI
+import uvicorn
 
 from watch.api import Collector, configured_workspace, create_app as create_api_app
 from watch.web import mount_web_routes
