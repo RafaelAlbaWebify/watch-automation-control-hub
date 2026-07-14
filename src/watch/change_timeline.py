@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 
 from watch.models import OperationalAction, WorkflowRun
 from watch.storage import JsonStore
-from watch.web_layout import page
+from watch.web_layout import badge, page, table
 
 
 def _action_count_by_run(actions: list[OperationalAction]) -> dict[str, int]:
@@ -37,7 +37,7 @@ def _timeline_rows(runs: list[WorkflowRun], actions: list[OperationalAction]) ->
             f"{escape(run.target_id)}</a></td>"
             f"<td><code>{escape(run.run_id)}</code></td>"
             f"<td>{previous}</td>"
-            f'<td><span class="badge">{escape(run.status.value)}</span></td>'
+            f"<td>{badge(run.status.value)}</td>"
             f"<td>{escape(event)}</td>"
             f"<td>{len(run.findings)}</td>"
             f"<td>{action_counts.get(run.run_id, 0)}</td>"
@@ -53,17 +53,25 @@ def mount_change_timeline_routes(app: FastAPI, workspace: Path) -> None:
     @app.get("/changes", response_class=HTMLResponse, include_in_schema=False)
     def change_timeline() -> HTMLResponse:
         runs = store.list_runs()
+        if not runs:
+            return page(
+                "Change timeline",
+                '<p class="empty">No run evidence exists for the change timeline.</p>',
+            )
+
         actions = store.list_actions()
-        body = (
-            '<p class="note">Read-only chronology built from immutable runs, '
-            "previous-run links, findings, actions, and reports.</p>"
-            "<table><thead><tr><th>Observed at</th><th>Target</th><th>Run</th>"
+        content = (
+            "<thead><tr><th>Observed at</th><th>Target</th><th>Run</th>"
             "<th>Previous run</th><th>Status</th><th>Change event</th>"
             "<th>Findings</th><th>Actions</th><th>Evidence</th>"
             "</tr></thead><tbody>"
             + _timeline_rows(runs, actions)
-            + "</tbody></table>"
-            if runs
-            else '<p class="empty">No run evidence exists for the change timeline.</p>'
+            + "</tbody>"
+        )
+        timeline_table = table(content, "Chronological target change evidence")
+        body = (
+            '<p class="note">Read-only chronology built from immutable runs, '
+            "previous-run links, findings, actions, and reports.</p>"
+            + timeline_table
         )
         return page("Change timeline", body)
