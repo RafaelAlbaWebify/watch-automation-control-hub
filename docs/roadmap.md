@@ -81,7 +81,20 @@
 - [x] Stale executing occurrence visibility
 - [x] Explicit grace and lookback limits
 - [x] Read-only attention API and persistence proof
-- [ ] Explicit bounded retry policy with separate attempt evidence
+
+#### M3.2 retry evidence
+
+- [x] Separate deterministic attempt identity
+- [x] Dedicated attempt and attempt-lock persistence
+- [x] Original failed occurrence backfilled as attempt 1
+- [x] Retry eligibility restricted to failed occurrences
+- [x] Enabled schedule and target guards preserved
+- [x] Hard maximum of three attempts
+- [x] Prior failure evidence preserved after recovery or repeated failure
+- [x] Linux and Windows service proof
+- [ ] Retry and attempt-history API
+- [ ] Read-only operator attempt visibility
+- [ ] Browser proof for attempt history
 
 ### M3.3 — Windows Task Scheduler adapter
 
