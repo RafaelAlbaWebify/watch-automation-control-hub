@@ -17,6 +17,7 @@ local target inventory
   -> persisted interval schedules
   -> deterministic due-occurrence calculation
   -> read-only latest-due work planning
+  -> bounded one-shot latest-due execution
   -> atomic idempotent claims
   -> explicit at-most-once occurrence execution
   -> missed-boundary and stale-execution visibility
@@ -65,13 +66,34 @@ Optional parameters:
 
 ## Plan latest due work without changing state
 
+Windows wrapper:
+
+```powershell
+.\WATCH.ps1 plan `
+  -EvaluatedAt "2026-07-14T20:00:00+02:00" `
+  -Workspace ".watch-data"
+```
+
+Direct CLI:
+
 ```powershell
 .\.venv\Scripts\python.exe -m watch.cli plan-due `
   --evaluated-at 2026-07-14T20:00:00+02:00 `
   --workspace .watch-data
 ```
 
-The command emits machine-readable JSON. It considers at most one latest due boundary per schedule and classifies it without creating a claim or invoking the collector.
+The command emits machine-readable JSON. It considers at most one latest due boundary per schedule and classifies it without creating a claim or invoking the collector. The Windows wrapper also saves timestamped evidence under `artifacts/runner` unless `-OutputPath` is supplied.
+
+## Run one bounded foreground due cycle
+
+```powershell
+.\WATCH.ps1 run-once `
+  -EvaluatedAt "2026-07-14T20:00:00+02:00" `
+  -MaxWork 2 `
+  -Workspace ".watch-data"
+```
+
+The command processes only `ready-to-claim` latest boundaries in deterministic schedule order. `MaxWork` is required to remain between 1 and 10. It runs once, writes a JSON result summary, and exits. It does not retry, loop, run in the background, or install a scheduled task.
 
 Generated evidence is stored under `.watch-data`:
 
@@ -126,7 +148,7 @@ Default API endpoints:
 
 The API and workbench use one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. HTML pages are read-only and excluded from the OpenAPI contract.
 
-## Scheduling, occurrence, retry, and planning safety
+## Scheduling, occurrence, retry, planning, and runner safety
 
 Schedule definitions link one immutable schedule ID to one target, normalize starts to UTC, and bound intervals from 5 minutes to 7 days.
 
@@ -140,6 +162,8 @@ The Attempts workbench page is visibility-only. It escapes stored reason and err
 
 Due-work planning is also visibility-only. The caller supplies one timezone-aware timestamp, WATCH normalizes it to UTC, reuses the existing occurrence-boundary and execution-key logic, and classifies the latest boundary for each schedule. Planning creates no claim, execution marker, retry attempt, run, action, or report and invokes no collector.
 
+The one-shot runner consumes only `ready-to-claim` plan items, enforces a caller-supplied 1–10 maximum, uses the existing atomic claim and permanent execution-marker services, returns completed/partial/failed evidence, and exits after one foreground invocation. Repeating the same boundary does not recollect finished work.
+
 ## Automated proof
 
 Every pull request runs:
@@ -149,19 +173,20 @@ Every pull request runs:
 - pytest with coverage;
 - deterministic demo generation;
 - FastAPI and OpenAPI contract tests;
-- read-only route, navigation, not-found, target-detail, attempt-history, and due-planning tests;
+- read-only route, navigation, not-found, target-detail, attempt-history, due-planning, and one-shot-runner tests;
 - Playwright Chromium semantic navigation;
 - browser console-error validation;
 - screenshots for dashboard, target detail, schedules, occurrences, attention, attempts, runs, changes, actions, and reports;
+- Windows wrapper proof for `plan` and `run-once` against an empty no-network workspace;
 - Playwright trace retention on browser failure;
 - Windows operator verification and review ZIP export;
 - Linux, Windows, and visual proof-artifact upload.
 
 ## Safety boundaries
 
-WATCH is read-only first. Current controls include explicit target registration, bounded timeouts and redirects, public-address validation, direct connections to validated IP addresses, normal TLS verification, disabled-target guards, startup-configured workspace isolation, local-only action transitions, read-only operator pages, byte-for-byte read-only due planning, and a maximum of three reasoned retry attempts for failed occurrences.
+WATCH is read-only first. Current controls include explicit target registration, bounded timeouts and redirects, public-address validation, direct connections to validated IP addresses, normal TLS verification, disabled-target guards, startup-configured workspace isolation, local-only action transitions, read-only operator pages, byte-for-byte read-only due planning, a bounded one-shot foreground runner, and a maximum of three reasoned retry attempts for failed occurrences.
 
-WATCH does not bypass authentication, submit external forms, crawl sites, store credentials, automatically retry or recover interrupted execution, retry stale executing work, install Task Scheduler jobs, execute batches, or modify external systems.
+WATCH does not bypass authentication, submit external forms, crawl sites, store credentials, automatically retry or recover interrupted execution, retry stale executing work, install Task Scheduler jobs, run a background loop, or modify external systems.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
 
@@ -169,9 +194,9 @@ See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md]
 
 ```text
 src/watch/           domain, services, collectors, storage, reports, CLI, API, and workbench
-tests/               unit, API, route, navigation, target-detail, attempt-history, and planner proof
+tests/               unit, API, route, navigation, planner, runner, and operator proof
 samples/             public-safe sample inputs
-scripts/             setup, verification, demo, browser proof, launch, and review export
+scripts/             setup, verification, demo, runner wrappers, browser proof, launch, and review export
 docs/                architecture, roadmap, safety, and milestone evidence
 .github/workflows/   Linux, Windows, and browser verification
 .watch-data/         generated local state, ignored by Git
@@ -179,4 +204,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next bounded recurring-execution slice is a one-shot runner that consumes only `ready-to-claim` plan items with an explicit maximum-work limit and result summary. Windows Task Scheduler installation remains out of scope until that runner is independently proven.
+The next decision is whether to design a rollback-safe Windows Task Scheduler adapter around the proven one-shot command. No scheduled task should be installed until its task definition, dry-run, verification, uninstall, and failure behavior are specified and tested.
