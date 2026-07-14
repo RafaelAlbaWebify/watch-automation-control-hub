@@ -86,21 +86,24 @@
 
 - [x] Separate deterministic attempt identity
 - [x] Dedicated attempt and attempt-lock persistence
-- [x] Original failed occurrence backfilled as attempt 1
 - [x] Retry eligibility restricted to failed occurrences
 - [x] Enabled schedule and target guards preserved
-- [x] Hard maximum of three attempts
-- [x] Prior failure evidence preserved after recovery or repeated failure
+- [x] Required non-blank operator reason stored on every attempt
+- [x] Three retry attempts numbered independently from 1 to 3
+- [x] Original occurrence remains byte-for-byte unchanged
+- [x] Completed, partial, and failed retry evidence retained separately
 - [x] Linux and Windows service proof
 - [x] Retry and attempt-history API
-- [x] OpenAPI and HTTP error-mapping proof
+- [x] OpenAPI request-body and HTTP error-mapping proof
 - [ ] Read-only operator attempt visibility
 - [ ] Browser proof for attempt history
 
-### M3.3 — Windows Task Scheduler adapter
+### M3.3 — One-shot runner and Windows Task Scheduler adapter
 
-- [ ] One due-runner scheduled task
+- [ ] Read-only due-work planning endpoint or command
+- [ ] One-shot bounded runner with explicit result summary
 - [ ] Dry-run and verification commands
+- [ ] One due-runner scheduled task
 - [ ] Installation and uninstall workflow
 - [ ] Rollback-safe local configuration
 - [ ] Scheduled proof package

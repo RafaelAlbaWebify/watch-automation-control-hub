@@ -79,41 +79,47 @@ def test_attempt_id_is_stable_and_attempt_specific() -> None:
     assert len(attempt_id(key, 1)) == 28
 
 
-def test_retry_backfills_original_failure_and_preserves_it(tmp_path: Path) -> None:
+def test_successful_retry_preserves_original_occurrence(tmp_path: Path) -> None:
     store, occurrence = _failed_workspace(tmp_path)
+    occurrence_path = store.occurrences_dir / f"{occurrence.execution_key}.json"
+    original_bytes = occurrence_path.read_bytes()
     service = BoundedRetryService(store, tmp_path, SuccessfulCollector())
 
-    finished, retry_attempt, run, result = service.retry(occurrence.execution_key)
+    returned, retry_attempt, run, result = service.retry(
+        occurrence.execution_key,
+        "Operator confirmed a transient upstream failure.",
+    )
 
     attempts = service.list_attempts(occurrence.execution_key)
-    assert [item.attempt_number for item in attempts] == [1, 2]
-    assert attempts[0].status == AttemptStatus.FAILED
-    assert attempts[0].error == "RuntimeError: first failure"
-    assert attempts[0].started_at == occurrence.execution_started_at
+    assert [item.attempt_number for item in attempts] == [1]
+    assert retry_attempt.reason == "Operator confirmed a transient upstream failure."
     assert retry_attempt.status == AttemptStatus.COMPLETED
     assert run is not None
     assert retry_attempt.run_id == run.run_id
     assert result == "completed"
-    assert finished.status == OccurrenceStatus.COMPLETED
-    assert finished.error is None
-    assert finished.run_id == retry_attempt.run_id
+    assert returned == occurrence
+    assert occurrence_path.read_bytes() == original_bytes
 
 
-def test_failed_retry_appends_attempt_without_losing_prior_error(tmp_path: Path) -> None:
+def test_failed_retry_preserves_original_failure_evidence(tmp_path: Path) -> None:
     store, occurrence = _failed_workspace(tmp_path)
+    occurrence_path = store.occurrences_dir / f"{occurrence.execution_key}.json"
+    original_bytes = occurrence_path.read_bytes()
     service = BoundedRetryService(store, tmp_path, FailedCollector())
 
-    finished, retry_attempt, run, result = service.retry(occurrence.execution_key)
+    returned, retry_attempt, run, result = service.retry(
+        occurrence.execution_key,
+        "Operator approved one controlled retry.",
+    )
 
     attempts = service.list_attempts(occurrence.execution_key)
-    assert len(attempts) == 2
-    assert attempts[0].error == "RuntimeError: first failure"
+    assert len(attempts) == 1
     assert retry_attempt.status == AttemptStatus.FAILED
     assert retry_attempt.error == "RuntimeError: upstream unavailable"
     assert run is None
     assert result == "failed"
-    assert finished.status == OccurrenceStatus.FAILED
-    assert finished.error == retry_attempt.error
+    assert returned == occurrence
+    assert occurrence_path.read_bytes() == original_bytes
 
 
 def test_retry_is_allowed_only_for_failed_occurrences(tmp_path: Path) -> None:
@@ -126,20 +132,23 @@ def test_retry_is_allowed_only_for_failed_occurrences(tmp_path: Path) -> None:
         OccurrenceExecutionBlockedError,
         match="only failed occurrences are eligible for retry",
     ):
-        service.retry(occurrence.execution_key)
+        service.retry(occurrence.execution_key, "Must not execute.")
 
 
-def test_retry_stops_at_hard_attempt_limit(tmp_path: Path) -> None:
+def test_retry_stops_at_three_operator_attempts(tmp_path: Path) -> None:
     store, occurrence = _failed_workspace(tmp_path)
     service = BoundedRetryService(store, tmp_path, FailedCollector())
 
-    for expected_attempts in range(2, MAX_ATTEMPTS + 1):
-        _, attempt, _, result = service.retry(occurrence.execution_key)
-        assert attempt.attempt_number == expected_attempts
+    for expected_attempt in range(1, MAX_ATTEMPTS + 1):
+        _, attempt, _, result = service.retry(
+            occurrence.execution_key,
+            f"Operator-approved retry {expected_attempt}.",
+        )
+        assert attempt.attempt_number == expected_attempt
         assert result == "failed"
 
     with pytest.raises(AttemptLimitReachedError, match="attempt limit reached"):
-        service.retry(occurrence.execution_key)
+        service.retry(occurrence.execution_key, "Fourth retry must be blocked.")
 
     attempts = service.list_attempts(occurrence.execution_key)
     assert len(attempts) == MAX_ATTEMPTS

@@ -66,6 +66,8 @@ def _failed_occurrence(workspace: Path) -> ScheduleOccurrence:
 
 def test_attempt_history_and_successful_retry_api(tmp_path: Path) -> None:
     occurrence = _failed_occurrence(tmp_path)
+    occurrence_path = tmp_path / "occurrences" / f"{occurrence.execution_key}.json"
+    original_bytes = occurrence_path.read_bytes()
     client = TestClient(create_app(tmp_path, SuccessfulCollector()))
 
     assert client.get("/api/attempts").json() == []
@@ -74,40 +76,64 @@ def test_attempt_history_and_successful_retry_api(tmp_path: Path) -> None:
     ).json() == []
 
     response = client.post(
-        f"/api/occurrences/{occurrence.execution_key}/retry"
+        f"/api/occurrences/{occurrence.execution_key}/retry",
+        json={"reason": "Operator validated a transient service failure."},
     )
     assert response.status_code == 200
     payload = response.json()
     assert payload["result"] == "completed"
-    assert payload["occurrence"]["status"] == "completed"
-    assert payload["attempt"]["attempt_number"] == 2
+    assert payload["occurrence"]["status"] == "failed"
+    assert payload["occurrence"]["error"] == "RuntimeError: original failure"
+    assert payload["attempt"]["attempt_number"] == 1
+    assert payload["attempt"]["reason"] == (
+        "Operator validated a transient service failure."
+    )
     assert payload["attempt"]["status"] == "completed"
     assert payload["run"]["run_id"] == payload["attempt"]["run_id"]
+    assert occurrence_path.read_bytes() == original_bytes
 
     attempts = client.get("/api/attempts").json()
-    assert [attempt["attempt_number"] for attempt in attempts] == [1, 2]
-    assert attempts[0]["status"] == "failed"
-    assert attempts[0]["error"] == "RuntimeError: original failure"
+    assert [attempt["attempt_number"] for attempt in attempts] == [1]
+    assert attempts[0]["status"] == "completed"
 
     scoped = client.get(
         f"/api/occurrences/{occurrence.execution_key}/attempts"
     ).json()
     assert scoped == attempts
-    assert client.post(
-        f"/api/occurrences/{occurrence.execution_key}/retry"
-    ).status_code == 409
 
 
-def test_retry_api_maps_missing_and_attempt_limit_errors(tmp_path: Path) -> None:
+def test_retry_api_maps_missing_validation_and_attempt_limit_errors(
+    tmp_path: Path,
+) -> None:
     client = TestClient(create_app(tmp_path, FailedCollector()))
     assert client.get("/api/occurrences/missing/attempts").status_code == 404
-    assert client.post("/api/occurrences/missing/retry").status_code == 404
+    assert client.post(
+        "/api/occurrences/missing/retry",
+        json={"reason": "Missing occurrence."},
+    ).status_code == 404
+    assert client.post(
+        "/api/occurrences/missing/retry",
+        json={"reason": "   "},
+    ).status_code == 422
 
     occurrence = _failed_occurrence(tmp_path)
     retry_url = f"/api/occurrences/{occurrence.execution_key}/retry"
-    assert client.post(retry_url).json()["attempt"]["attempt_number"] == 2
-    assert client.post(retry_url).json()["attempt"]["attempt_number"] == 3
-    limit = client.post(retry_url)
+    assert client.post(
+        retry_url,
+        json={"reason": "Operator retry one."},
+    ).json()["attempt"]["attempt_number"] == 1
+    assert client.post(
+        retry_url,
+        json={"reason": "Operator retry two."},
+    ).json()["attempt"]["attempt_number"] == 2
+    assert client.post(
+        retry_url,
+        json={"reason": "Operator retry three."},
+    ).json()["attempt"]["attempt_number"] == 3
+    limit = client.post(
+        retry_url,
+        json={"reason": "Fourth retry must be blocked."},
+    )
     assert limit.status_code == 409
     assert limit.json()["detail"] == "attempt limit reached: maximum 3"
 
@@ -121,3 +147,7 @@ def test_retry_routes_are_in_workbench_openapi(tmp_path: Path) -> None:
     assert "/api/attempts" in paths
     assert "/api/occurrences/{execution_key}/attempts" in paths
     assert "/api/occurrences/{execution_key}/retry" in paths
+    request_schema = paths[
+        "/api/occurrences/{execution_key}/retry"
+    ]["post"]["requestBody"]
+    assert request_schema["required"] is True

@@ -39,6 +39,7 @@ class ExecutionAttempt(BaseModel):
     attempt_id: str = Field(pattern=r"^att-[a-f0-9]{24}$")
     execution_key: str = Field(pattern=r"^occ-[a-f0-9]{24}$")
     attempt_number: int = Field(ge=1, le=MAX_ATTEMPTS)
+    reason: str = Field(min_length=1, max_length=1000)
     status: AttemptStatus
     started_at: datetime
     finished_at: datetime | None = None
@@ -134,29 +135,10 @@ class BoundedRetryService:
     ) -> list[ExecutionAttempt]:
         return self._attempts.list(execution_key)
 
-    def _backfill_original_failure(self, occurrence: ScheduleOccurrence) -> None:
-        if self._attempts.list(occurrence.execution_key):
-            return
-        if occurrence.status != OccurrenceStatus.FAILED:
-            return
-        started_at = occurrence.execution_started_at or occurrence.claimed_at
-        original = ExecutionAttempt(
-            attempt_id=attempt_id(occurrence.execution_key, 1),
-            execution_key=occurrence.execution_key,
-            attempt_number=1,
-            status=AttemptStatus.FAILED,
-            started_at=started_at,
-            finished_at=occurrence.finished_at,
-            error=occurrence.error or "Original occurrence execution failed.",
-        )
-        try:
-            self._attempts.create(original)
-        except FileExistsError:
-            pass
-
     def retry(
         self,
         execution_key_value: str,
+        reason: str,
     ) -> tuple[ScheduleOccurrence, ExecutionAttempt, WorkflowRun | None, str]:
         occurrence = self._store.get_occurrence(execution_key_value)
         if occurrence is None:
@@ -177,7 +159,6 @@ class BoundedRetryService:
         if not target.enabled:
             raise OccurrenceExecutionBlockedError("target is disabled")
 
-        self._backfill_original_failure(occurrence)
         existing = self._attempts.list(occurrence.execution_key)
         next_number = len(existing) + 1
         if next_number > MAX_ATTEMPTS:
@@ -189,6 +170,7 @@ class BoundedRetryService:
             attempt_id=attempt_id(occurrence.execution_key, next_number),
             execution_key=occurrence.execution_key,
             attempt_number=next_number,
+            reason=reason.strip(),
             status=AttemptStatus.EXECUTING,
             started_at=datetime.now(UTC),
         )
@@ -199,7 +181,13 @@ class BoundedRetryService:
             current = self._attempts.get(attempt.attempt_id)
             if current is None:
                 raise
-            return occurrence, current, None, "already-attempted"
+            run = self._store.get_run(current.run_id) if current.run_id else None
+            result = (
+                "already-executing"
+                if current.status == AttemptStatus.EXECUTING
+                else "already-finished"
+            )
+            return occurrence, current, run, result
 
         try:
             observations = self._collector.collect(target)
@@ -218,14 +206,7 @@ class BoundedRetryService:
                 }
             )
             self._attempts.update(failed_attempt)
-            failed_occurrence = occurrence.model_copy(
-                update={
-                    "finished_at": failed_attempt.finished_at,
-                    "error": error,
-                }
-            )
-            self._store.update_occurrence(failed_occurrence)
-            return failed_occurrence, failed_attempt, None, "failed"
+            return occurrence, failed_attempt, None, "failed"
 
         final_status = (
             AttemptStatus.PARTIAL
@@ -240,18 +221,4 @@ class BoundedRetryService:
             }
         )
         self._attempts.update(finished_attempt)
-        occurrence_status = (
-            OccurrenceStatus.PARTIAL
-            if final_status == AttemptStatus.PARTIAL
-            else OccurrenceStatus.COMPLETED
-        )
-        finished_occurrence = occurrence.model_copy(
-            update={
-                "status": occurrence_status,
-                "finished_at": finished_attempt.finished_at,
-                "run_id": run.run_id,
-                "error": None,
-            }
-        )
-        self._store.update_occurrence(finished_occurrence)
-        return finished_occurrence, finished_attempt, run, final_status.value
+        return occurrence, finished_attempt, run, final_status.value
