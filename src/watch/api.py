@@ -23,9 +23,12 @@ from watch.models import (
 )
 from watch.occurrences import (
     EvaluationTimeError,
+    OccurrenceExecutionBlockedError,
+    OccurrenceExecutionService,
     OccurrenceNotFoundError,
     OccurrenceScheduleNotFoundError,
     OccurrenceService,
+    OccurrenceTargetNotFoundError,
     normalize_evaluation_time,
 )
 from watch.schedules import (
@@ -66,6 +69,12 @@ class OccurrenceEvaluationResponse(BaseModel):
     result: str
 
 
+class OccurrenceExecutionResponse(BaseModel):
+    occurrence: ScheduleOccurrence
+    run: WorkflowRun | None
+    result: str
+
+
 def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     store = JsonStore(workspace)
     actions = ActionService(store)
@@ -73,11 +82,16 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     schedules = ScheduleService(store)
     occurrences = OccurrenceService(store)
     website_collector: Collector = collector or WebsiteCollector()
+    occurrence_execution = OccurrenceExecutionService(
+        store=store,
+        workspace=workspace,
+        collector=website_collector,
+    )
     app = FastAPI(
         title="WATCH Operator API",
-        version="0.8.0",
+        version="0.9.0",
         description=(
-            "Local operator access to WATCH targets, schedules, occurrence claims, "
+            "Local operator access to WATCH targets, schedules, controlled occurrence "
             "execution, evidence, and actions."
         ),
     )
@@ -200,6 +214,27 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
             return occurrences.get(execution_key)
         except OccurrenceNotFoundError as exc:
             raise HTTPException(status_code=404, detail="occurrence not found") from exc
+
+    @app.post(
+        "/api/occurrences/{execution_key}/execute",
+        response_model=OccurrenceExecutionResponse,
+    )
+    def execute_occurrence(execution_key: str) -> OccurrenceExecutionResponse:
+        try:
+            occurrence, run, result = occurrence_execution.execute(execution_key)
+        except OccurrenceNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="occurrence not found") from exc
+        except OccurrenceScheduleNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="schedule not found") from exc
+        except OccurrenceTargetNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="target not found") from exc
+        except OccurrenceExecutionBlockedError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return OccurrenceExecutionResponse(
+            occurrence=occurrence,
+            run=run,
+            result=result,
+        )
 
     @app.get("/api/runs", response_model=list[WorkflowRun])
     def list_runs() -> list[WorkflowRun]:
