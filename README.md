@@ -19,6 +19,7 @@ local target inventory
   -> atomic idempotent claims
   -> explicit at-most-once occurrence execution
   -> missed-boundary and stale-execution visibility
+  -> bounded operator-controlled retry attempts
   -> DNS and public-address validation
   -> address-pinned HTTP and redirect inspection
   -> response timing, page title, and TLS expiry evidence
@@ -68,6 +69,8 @@ Generated evidence is stored under `.watch-data`:
 ├── schedules/
 ├── occurrences/
 ├── occurrence-locks/
+├── attempts/
+├── attempt-locks/
 ├── runs/
 ├── actions/
 └── reports/
@@ -103,18 +106,21 @@ Default API endpoints:
 - targets: `http://127.0.0.1:8000/api/targets`
 - schedules: `http://127.0.0.1:8000/api/schedules`
 - occurrences: `http://127.0.0.1:8000/api/occurrences`
+- attempts: `http://127.0.0.1:8000/api/attempts`
 - runs: `http://127.0.0.1:8000/api/runs`
 - actions: `http://127.0.0.1:8000/api/actions`
 
 The API and workbench use one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. HTML pages are read-only and excluded from the OpenAPI contract.
 
-## Scheduling and occurrence safety
+## Scheduling, occurrence, and retry safety
 
 Schedule definitions link one immutable schedule ID to one target, normalize starts to UTC, and bound intervals from 5 minutes to 7 days.
 
 Occurrence evaluation derives deterministic UTC boundaries and execution keys. Exclusive local files provide restart-safe claims and permanent at-most-once execution markers. Disabled schedules and targets are rejected before collection.
 
 Attention inspection is read-only. It reports `missed-unclaimed` boundaries and `executing-stale` occurrences using bounded grace and lookback values. It creates no claims, invokes no collector, changes no state, and performs no recovery.
+
+Retries are explicit operator actions against terminal `failed` occurrences only. Each request must include a non-blank reason, and WATCH stores that reason on a separate attempt record before collection. Attempts are numbered independently from 1 to 3. The original occurrence remains byte-for-byte unchanged after a completed, partial, or failed retry. Stale `executing` occurrences are never retried because the original process may still be active.
 
 ## Automated proof
 
@@ -135,9 +141,9 @@ Every pull request runs:
 
 ## Safety boundaries
 
-WATCH is read-only first. Current controls include explicit target registration, bounded timeouts and redirects, public-address validation, direct connections to validated IP addresses, normal TLS verification, disabled-target guards, startup-configured workspace isolation, local-only action transitions, and read-only operator pages.
+WATCH is read-only first. Current controls include explicit target registration, bounded timeouts and redirects, public-address validation, direct connections to validated IP addresses, normal TLS verification, disabled-target guards, startup-configured workspace isolation, local-only action transitions, read-only operator pages, and a maximum of three reasoned retry attempts for failed occurrences.
 
-WATCH does not bypass authentication, submit external forms, crawl sites, store credentials, automatically retry or recover interrupted execution, install Task Scheduler jobs, execute batches, or modify external systems.
+WATCH does not bypass authentication, submit external forms, crawl sites, store credentials, automatically retry or recover interrupted execution, retry stale executing work, install Task Scheduler jobs, execute batches, or modify external systems.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
 
@@ -155,4 +161,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next bounded interface slice is M4.6: usability and accessibility improvements such as active navigation state, responsive tables, stronger status hierarchy, keyboard proof, and accessible table/landmark review. Retry policy and Windows Task Scheduler integration remain separate later decisions.
+The next bounded interface slice is read-only operator attempt visibility and browser proof, followed by M3.3 one-shot runner planning before any Windows Task Scheduler installation.
