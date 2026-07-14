@@ -6,7 +6,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from watch.models import OperationalAction, Target, WorkflowRun
+from watch.models import IntervalSchedule, OperationalAction, Target, WorkflowRun
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -15,11 +15,13 @@ class JsonStore:
     def __init__(self, workspace: Path) -> None:
         self.workspace = workspace
         self.targets_dir = workspace / "targets"
+        self.schedules_dir = workspace / "schedules"
         self.runs_dir = workspace / "runs"
         self.actions_dir = workspace / "actions"
         self.reports_dir = workspace / "reports"
         for directory in (
             self.targets_dir,
+            self.schedules_dir,
             self.runs_dir,
             self.actions_dir,
             self.reports_dir,
@@ -57,6 +59,31 @@ class JsonStore:
     def list_targets(self) -> list[Target]:
         targets = [self._read(path, Target) for path in self.targets_dir.glob("*.json")]
         return sorted(targets, key=lambda target: target.target_id)
+
+    def create_schedule(self, schedule: IntervalSchedule) -> Path:
+        path = self.schedules_dir / f"{schedule.schedule_id}.json"
+        if path.exists():
+            raise FileExistsError(f"schedule already exists: {schedule.schedule_id}")
+        self._write(path, schedule)
+        return path
+
+    def update_schedule(self, schedule: IntervalSchedule) -> Path:
+        path = self.schedules_dir / f"{schedule.schedule_id}.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"schedule not found: {schedule.schedule_id}")
+        self._write(path, schedule)
+        return path
+
+    def get_schedule(self, schedule_id: str) -> IntervalSchedule | None:
+        path = self.schedules_dir / f"{schedule_id}.json"
+        return self._read(path, IntervalSchedule) if path.is_file() else None
+
+    def list_schedules(self) -> list[IntervalSchedule]:
+        schedules = [
+            self._read(path, IntervalSchedule)
+            for path in self.schedules_dir.glob("*.json")
+        ]
+        return sorted(schedules, key=lambda schedule: schedule.schedule_id)
 
     def save_run(self, run: WorkflowRun) -> Path:
         path = self.runs_dir / f"{run.run_id}.json"

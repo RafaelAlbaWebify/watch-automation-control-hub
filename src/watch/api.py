@@ -11,11 +11,19 @@ from pydantic import BaseModel, Field
 from watch.actions import ActionNotFoundError, ActionService, InvalidActionTransitionError
 from watch.collectors import WebsiteCollector
 from watch.models import (
+    IntervalSchedule,
+    IntervalScheduleUpdate,
     ObservationSet,
     OperationalAction,
     Target,
     TargetUpdate,
     WorkflowRun,
+)
+from watch.schedules import (
+    ScheduleAlreadyExistsError,
+    ScheduleNotFoundError,
+    ScheduleService,
+    ScheduleTargetNotFoundError,
 )
 from watch.storage import JsonStore
 from watch.targets import TargetAlreadyExistsError, TargetNotFoundError, TargetService
@@ -39,11 +47,15 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     store = JsonStore(workspace)
     actions = ActionService(store)
     targets = TargetService(store)
+    schedules = ScheduleService(store)
     website_collector: Collector = collector or WebsiteCollector()
     app = FastAPI(
         title="WATCH Operator API",
-        version="0.6.0",
-        description="Local operator access to WATCH targets, execution, evidence, and actions.",
+        version="0.7.0",
+        description=(
+            "Local operator access to WATCH targets, schedule configuration, "
+            "execution, evidence, and actions."
+        ),
     )
 
     @app.get("/api/health")
@@ -98,6 +110,42 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
             workspace=workspace,
         )
         return ExecutionResponse(run=run, actions=run_actions)
+
+    @app.get("/api/schedules", response_model=list[IntervalSchedule])
+    def list_schedules() -> list[IntervalSchedule]:
+        return schedules.list()
+
+    @app.get("/api/schedules/{schedule_id}", response_model=IntervalSchedule)
+    def get_schedule(schedule_id: str) -> IntervalSchedule:
+        try:
+            return schedules.get(schedule_id)
+        except ScheduleNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="schedule not found") from exc
+
+    @app.post(
+        "/api/schedules",
+        response_model=IntervalSchedule,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def create_schedule(schedule: IntervalSchedule) -> IntervalSchedule:
+        try:
+            return schedules.create(schedule)
+        except ScheduleTargetNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="target not found") from exc
+        except ScheduleAlreadyExistsError as exc:
+            raise HTTPException(status_code=409, detail="schedule already exists") from exc
+
+    @app.put("/api/schedules/{schedule_id}", response_model=IntervalSchedule)
+    def update_schedule(
+        schedule_id: str,
+        request: IntervalScheduleUpdate,
+    ) -> IntervalSchedule:
+        try:
+            return schedules.update(schedule_id, request)
+        except ScheduleNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="schedule not found") from exc
+        except ScheduleTargetNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="target not found") from exc
 
     @app.get("/api/runs", response_model=list[WorkflowRun])
     def list_runs() -> list[WorkflowRun]:

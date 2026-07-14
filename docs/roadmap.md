@@ -50,16 +50,37 @@
 
 ## M3 — Recurring execution
 
-- [ ] Schedule definitions
-- [ ] Windows Task Scheduler integration
+### M3.1 — Schedule configuration
+
+- [x] Persisted interval schedule definitions
+- [x] One immutable target link per schedule
+- [x] Timezone-aware start time normalized to UTC
+- [x] Interval bounded from 5 minutes to 7 days
+- [x] Schedule list, detail, create, and update API
+- [x] Configuration-only safety proof with no collector invocation
+
+### M3.2 — Due evaluation and idempotent claims
+
+- [ ] Deterministic occurrence calculation
 - [ ] Idempotent execution keys
-- [ ] Retry and timeout policy
+- [ ] Atomic occurrence claims
+- [ ] Restart-safe occurrence records
+- [ ] Disabled schedule and target guards
 - [ ] Missed-run visibility
+- [ ] Explicit bounded retry and timeout policy
+
+### M3.3 — Windows Task Scheduler adapter
+
+- [ ] One due-runner scheduled task
+- [ ] Dry-run and verification commands
+- [ ] Installation and uninstall workflow
+- [ ] Rollback-safe local configuration
 - [ ] Scheduled proof package
 
 ## M4 — Operator interface
 
 - [ ] Target inventory
+- [ ] Schedule inventory
 - [ ] Run history
 - [ ] Change timeline
 - [ ] Pending actions
