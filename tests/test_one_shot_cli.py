@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from watch.cli import app as cli_app
@@ -10,7 +11,8 @@ from watch.storage import JsonStore
 
 
 class SuccessfulCollector:
-    calls: list[str] = []
+    def __init__(self) -> None:
+        self.calls: list[str] = []
 
     def collect(self, target: Target) -> ObservationSet:
         self.calls.append(target.target_id)
@@ -37,11 +39,11 @@ def _seed(workspace: Path) -> None:
 
 def test_run_due_once_cli_emits_machine_readable_summary(
     tmp_path: Path,
-    monkeypatch: object,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     _seed(tmp_path)
     collector = SuccessfulCollector()
-    monkeypatch.setattr("watch.cli.WebsiteCollector", lambda: collector)  # type: ignore[attr-defined]
+    monkeypatch.setattr("watch.cli.WebsiteCollector", lambda: collector)
 
     result = CliRunner().invoke(
         cli_app,
