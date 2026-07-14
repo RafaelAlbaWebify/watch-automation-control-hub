@@ -12,6 +12,7 @@ from watch.models import (
     Target,
 )
 from watch.occurrences import execution_key
+from watch.retries import retry_attempt_id
 from watch.storage import JsonStore
 
 
@@ -73,6 +74,15 @@ def _seed_failed_occurrence(
         )
     )
     return store, key
+
+
+def test_retry_attempt_ids_are_deterministic_and_sequential() -> None:
+    execution_key_value = "occ-000000000000000000000000"
+    first = retry_attempt_id(execution_key_value, 1)
+    assert first == retry_attempt_id(execution_key_value, 1)
+    assert first.startswith("retry-")
+    assert len(first) == 30
+    assert retry_attempt_id(execution_key_value, 2) != first
 
 
 def test_successful_retry_persists_separate_attempt_and_run(tmp_path: Path) -> None:
