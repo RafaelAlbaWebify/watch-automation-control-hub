@@ -36,6 +36,8 @@
 
 - [x] FastAPI health endpoint
 - [x] Persistent target inventory list, detail, create, and update endpoints
+- [x] Explicit single-target execution endpoint for a registered target
+- [x] Disabled-target execution guard
 - [x] Run history list and detail endpoints
 - [x] Action history endpoint
 - [x] Action acknowledgement and resolution endpoints
@@ -43,7 +45,6 @@
 - [x] OpenAPI contract tests
 - [x] Explicit startup workspace configuration
 - [x] Windows operator API launch command
-- [ ] Explicit workflow execution endpoint for a registered target
 
 ## M3 — Recurring execution
 

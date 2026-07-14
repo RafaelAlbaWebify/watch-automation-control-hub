@@ -22,6 +22,7 @@ WATCH currently supports:
 
 ```text
 local target inventory
+  -> explicit single-target execution
   -> DNS resolution and public-address validation
   -> bounded HTTP request and redirect inspection
   -> response timing and page-title extraction
@@ -104,6 +105,7 @@ GET  /api/targets
 GET  /api/targets/{target_id}
 POST /api/targets
 PUT  /api/targets/{target_id}
+POST /api/targets/{target_id}/runs
 GET  /api/runs
 GET  /api/runs/{run_id}
 GET  /api/actions
@@ -112,7 +114,9 @@ POST /api/actions/{action_id}/resolve
 GET  /api/reports/{run_id}.md
 ```
 
-The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target and action writes affect local WATCH state only; no external remediation or automatic collection is triggered by those endpoints.
+The execution endpoint is explicit and operates on one enabled registered target per request. It persists the resulting run, findings, actions, history, and reports in the configured workspace. It does not introduce scheduling, batch execution, retries, background tasks, or external remediation.
+
+The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target and action writes affect local WATCH state only.
 
 ## Automated proof
 
@@ -136,8 +140,9 @@ WATCH is read-only first.
 Current controls include:
 
 - explicit local target registration;
-- one explicit target per live command;
+- explicit one-target execution;
 - HTTP and HTTPS only through the validated target model;
+- disabled targets rejected before collection;
 - public-address validation before each redirect hop;
 - blocking of private, loopback, link-local, reserved, and other non-public addresses;
 - a five-redirect limit;
@@ -145,7 +150,7 @@ Current controls include:
 - normal TLS certificate and hostname verification;
 - API workspace configured at startup rather than supplied by requests;
 - controlled local-only action state transitions;
-- no authentication bypass, form submission, crawling, credential storage, or external modification.
+- no authentication bypass, form submission, crawling, credential storage, scheduling, batch execution, or external modification.
 
 Known limitation: the HTTP library performs its own DNS resolution after validation, so transport-level HTTP address pinning remains tracked in Issue #11. TLS inspection is already pinned to a validated address.
 
@@ -165,4 +170,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next bounded operator slice is controlled workflow execution for an already registered target. It must remain explicit and single-target; broader scheduling or multi-target execution waits for HTTP transport address pinning and M3 design.
+M2 is complete as a bounded local operator API. Before broader recurring or multi-target execution, WATCH should harden HTTP transport address pinning and then define M3 scheduling, idempotency, retry, and missed-run contracts.
