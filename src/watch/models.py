@@ -163,6 +163,9 @@ class ObservationSet(BaseModel):
     response_ms: int | None = Field(default=None, ge=0)
     tls_days_remaining: int | None = None
     page_title: str | None = None
+    content_type: str | None = Field(default=None, max_length=500)
+    content_length_bytes: int | None = Field(default=None, ge=0)
+    response_headers: dict[str, str] = Field(default_factory=dict)
     resolved_ips: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 
