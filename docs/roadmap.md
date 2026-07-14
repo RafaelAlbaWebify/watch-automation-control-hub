@@ -109,7 +109,8 @@
 - [x] Completed, partial, and failed result mapping
 - [x] Repeated-invocation no-recollection proof
 - [x] Machine-readable foreground CLI command
-- [ ] Dry-run and verification wrapper commands
+- [x] Windows dry-run and one-shot wrapper commands
+- [x] Empty-workspace wrapper verification and JSON evidence
 - [ ] One due-runner scheduled task
 - [ ] Installation and uninstall workflow
 - [ ] Rollback-safe local configuration
