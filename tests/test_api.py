@@ -62,6 +62,7 @@ def test_empty_workspace_returns_empty_collections(tmp_path: Path) -> None:
     }
     assert client.get("/api/targets").json() == []
     assert client.get("/api/schedules").json() == []
+    assert client.get("/api/occurrences").json() == []
     assert client.get("/api/runs").json() == []
     assert client.get("/api/actions").json() == []
 
@@ -340,6 +341,9 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
         "/api/targets/{target_id}/runs",
         "/api/schedules",
         "/api/schedules/{schedule_id}",
+        "/api/schedules/{schedule_id}/occurrences/evaluate",
+        "/api/occurrences",
+        "/api/occurrences/{execution_key}",
         "/api/runs",
         "/api/runs/{run_id}",
         "/api/actions",
@@ -352,5 +356,10 @@ def test_openapi_contains_intended_operator_endpoints(tmp_path: Path) -> None:
     assert set(schema["paths"]["/api/targets/{target_id}/runs"]) == {"post"}
     assert set(schema["paths"]["/api/schedules"]) == {"get", "post"}
     assert set(schema["paths"]["/api/schedules/{schedule_id}"]) == {"get", "put"}
+    assert set(
+        schema["paths"]["/api/schedules/{schedule_id}/occurrences/evaluate"]
+    ) == {"post"}
+    assert set(schema["paths"]["/api/occurrences"]) == {"get"}
+    assert set(schema["paths"]["/api/occurrences/{execution_key}"]) == {"get"}
     assert set(schema["paths"]["/api/actions/{action_id}/acknowledge"]) == {"post"}
     assert set(schema["paths"]["/api/actions/{action_id}/resolve"]) == {"post"}
