@@ -26,6 +26,7 @@ local target inventory
   -> deterministic due-occurrence calculation
   -> atomic idempotent occurrence claims
   -> explicit at-most-once occurrence execution
+  -> bounded read-only missed/interrupted attention visibility
   -> DNS resolution and public-address validation
   -> address-pinned HTTP request and redirect inspection
   -> response timing and page-title extraction
@@ -120,6 +121,7 @@ POST /api/schedules
 PUT  /api/schedules/{schedule_id}
 POST /api/schedules/{schedule_id}/occurrences/evaluate
 GET  /api/occurrences
+POST /api/occurrences/attention
 GET  /api/occurrences/{execution_key}
 POST /api/occurrences/{execution_key}/execute
 GET  /api/runs
@@ -136,11 +138,18 @@ Occurrence evaluation requires an explicit timezone-aware timestamp. WATCH calcu
 
 Executing an occurrence is also explicit. WATCH revalidates the schedule and target, creates a permanent exclusive execution marker, transitions the occurrence to `executing`, then invokes the existing collector and workflow once. Completed and partial workflow runs are linked through `run_id`. Collector exceptions are retained as terminal `failed` occurrence evidence.
 
-The permanent execution marker provides an at-most-once collection boundary across process restarts. A repeated request returns the existing executing or terminal occurrence and does not invoke the collector again. This deliberately favors duplicate prevention over automatic recovery after an interrupted execution; missed or interrupted execution handling remains a later policy slice.
+The permanent execution marker provides an at-most-once collection boundary across process restarts. A repeated request returns the existing executing or terminal occurrence and does not invoke the collector again. This deliberately favors duplicate prevention over automatic recovery after an interrupted execution.
+
+Occurrence attention inspection provides read-only operational visibility. The caller supplies an explicit evaluation time, a grace period from 1 to 1,440 minutes, and a lookback from 1 to 100 interval boundaries. WATCH reports:
+
+- `missed-unclaimed` when an enabled schedule boundary is older than the grace period but has no occurrence record;
+- `executing-stale` when an occurrence remains in `executing` beyond the grace period.
+
+Attention inspection derives the same deterministic keys used for claims but creates no records, changes no state, invokes no collector, and performs no recovery. The bounded lookback prevents an old schedule from generating an unbounded response.
 
 The direct target execution endpoint continues to operate on one enabled registered target per request and persists the resulting run, findings, actions, history, and reports.
 
-The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, and action writes affect local WATCH state only.
+The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, and action writes affect local WATCH state only. Attention inspection is read-only against that workspace.
 
 ## Automated proof
 
@@ -175,6 +184,9 @@ Current controls include:
 - permanent execution markers preventing duplicate collection across restarts;
 - controlled occurrence states: claimed, executing, completed, partial, failed, and reserved missed;
 - collector failures retained as bounded local evidence;
+- read-only missed-boundary and stale-execution visibility;
+- bounded 1–100 occurrence attention lookback and 1–1,440 minute grace period;
+- no state change, claim, collection, or retry from attention inspection;
 - HTTP and HTTPS only through the validated target model;
 - disabled targets rejected before collection;
 - public-address validation before each redirect hop;
@@ -205,4 +217,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-M3.2 now includes deterministic claims and explicit at-most-once occurrence execution. The next bounded slice is missed or interrupted occurrence visibility and an explicit retry policy before any Windows Task Scheduler installation.
+M3.2 now includes deterministic claims, explicit at-most-once execution, and read-only missed/interrupted visibility. The next bounded slice is an explicit operator-controlled retry policy with separate attempt evidence, before any Windows Task Scheduler installation.
