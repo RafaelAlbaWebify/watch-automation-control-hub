@@ -15,6 +15,7 @@ from watch.models import (
     IntervalSchedule,
     IntervalScheduleUpdate,
     ObservationSet,
+    OccurrenceAttention,
     OperationalAction,
     ScheduleOccurrence,
     Target,
@@ -23,6 +24,7 @@ from watch.models import (
 )
 from watch.occurrences import (
     EvaluationTimeError,
+    OccurrenceAttentionService,
     OccurrenceExecutionBlockedError,
     OccurrenceExecutionService,
     OccurrenceNotFoundError,
@@ -75,12 +77,24 @@ class OccurrenceExecutionResponse(BaseModel):
     result: str
 
 
+class OccurrenceAttentionRequest(BaseModel):
+    evaluated_at: datetime
+    grace_minutes: int = Field(default=15, ge=1, le=1440)
+    lookback_occurrences: int = Field(default=24, ge=1, le=100)
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def validate_evaluated_at(cls, value: datetime) -> datetime:
+        return normalize_evaluation_time(value)
+
+
 def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     store = JsonStore(workspace)
     actions = ActionService(store)
     targets = TargetService(store)
     schedules = ScheduleService(store)
     occurrences = OccurrenceService(store)
+    occurrence_attention = OccurrenceAttentionService(store)
     website_collector: Collector = collector or WebsiteCollector()
     occurrence_execution = OccurrenceExecutionService(
         store=store,
@@ -89,10 +103,10 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     )
     app = FastAPI(
         title="WATCH Operator API",
-        version="0.9.0",
+        version="0.10.0",
         description=(
-            "Local operator access to WATCH targets, schedules, controlled occurrence "
-            "execution, evidence, and actions."
+            "Local operator access to WATCH targets, schedules, occurrence attention, "
+            "controlled execution, evidence, and actions."
         ),
     )
 
@@ -204,6 +218,22 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     @app.get("/api/occurrences", response_model=list[ScheduleOccurrence])
     def list_occurrences() -> list[ScheduleOccurrence]:
         return occurrences.list()
+
+    @app.post(
+        "/api/occurrences/attention",
+        response_model=list[OccurrenceAttention],
+    )
+    def inspect_occurrence_attention(
+        request: OccurrenceAttentionRequest,
+    ) -> list[OccurrenceAttention]:
+        try:
+            return occurrence_attention.inspect(
+                evaluated_at=request.evaluated_at,
+                grace_minutes=request.grace_minutes,
+                lookback_occurrences=request.lookback_occurrences,
+            )
+        except EvaluationTimeError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get(
         "/api/occurrences/{execution_key}",
