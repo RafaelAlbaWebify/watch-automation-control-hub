@@ -7,13 +7,17 @@ from fastapi import FastAPI
 
 from watch.api import Collector, configured_workspace
 from watch.api import create_app as create_api_app
+from watch.attempt_api import mount_attempt_routes
 from watch.change_timeline import mount_change_timeline_routes
+from watch.collectors import WebsiteCollector
 from watch.target_detail import mount_target_detail_routes
 from watch.web import mount_web_routes
 
 
 def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
-    app = create_api_app(workspace, collector)
+    effective_collector: Collector = collector or WebsiteCollector()
+    app = create_api_app(workspace, effective_collector)
+    mount_attempt_routes(app, workspace, effective_collector)
     mount_web_routes(app, workspace)
     mount_change_timeline_routes(app, workspace)
     mount_target_detail_routes(app, workspace)
