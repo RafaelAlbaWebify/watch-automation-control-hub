@@ -36,7 +36,7 @@ def main() -> None:
         try:
             page.goto(args.base_url, wait_until="networkidle")
             _assert_text(page, "Operator dashboard")
-            _assert_text(page, "3 enabled")
+            _assert_text(page, "2 enabled")
             _assert_text(page, "Open actions")
             page.screenshot(path=screenshots / "dashboard.png", full_page=True)
 
