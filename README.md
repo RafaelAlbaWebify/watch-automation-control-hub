@@ -6,54 +6,34 @@ WATCH is a local-first IT automation and operational-control workbench. It manag
 
 ## Portfolio purpose
 
-WATCH is the flagship project for the **IT Automation Engineer** path in Rafael Alba's technical portfolio.
-
-It is deliberately separated from:
-
-- **OPSCORE**, which investigates infrastructure and production-service evidence.
-- **INFIOS**, which structures application-support incidents.
-- **TRACE**, which structures IAM and access evidence.
+WATCH is the flagship project for the **IT Automation Engineer** path in Rafael Alba's technical portfolio. It is deliberately separated from OPSCORE infrastructure investigation, INFIOS application-support incident work, and TRACE IAM evidence.
 
 WATCH controls **which workflow runs, against which target, with what result, what changed, and what action is required**.
 
 ## Current verified capability
 
-WATCH currently supports:
-
 ```text
 local target inventory
-  -> persisted interval schedule definitions
+  -> persisted interval schedules
   -> deterministic due-occurrence calculation
-  -> atomic idempotent occurrence claims
+  -> atomic idempotent claims
   -> explicit at-most-once occurrence execution
-  -> bounded read-only missed/interrupted attention visibility
-  -> DNS resolution and public-address validation
-  -> address-pinned HTTP request and redirect inspection
-  -> response timing and page-title extraction
-  -> TLS certificate expiry inspection
-  -> deterministic findings
-  -> previous-run comparison
-  -> action creation or reuse
-  -> action acknowledgement and resolution
-  -> immutable run history
-  -> Markdown and JSON reports
+  -> missed-boundary and stale-execution visibility
+  -> DNS and public-address validation
+  -> address-pinned HTTP and redirect inspection
+  -> response timing, page title, and TLS expiry evidence
+  -> deterministic findings and previous-run comparison
+  -> action creation, acknowledgement, and resolution
+  -> immutable run history and reports
   -> local operator API
-  -> read-only operator dashboard
-  -> read-only schedule, occurrence, attention, and change views
+  -> read-only operator workbench
+  -> target-focused evidence drill-down
   -> Playwright browser and screenshot proof
 ```
 
-Collected evidence includes:
+Collected evidence includes HTTP status, final URL, redirects, response duration, resolved IP addresses, page title, TLS days remaining, and structured DNS, HTTP, timeout, and TLS errors.
 
-- HTTP status and final URL;
-- redirect chain and redirect count;
-- response duration;
-- resolved IP addresses;
-- page title for HTML responses;
-- TLS certificate days remaining;
-- structured DNS, HTTP, timeout, and TLS errors.
-
-For each HTTP redirect hop, WATCH resolves and validates the hostname, connects directly to a validated public IP, and preserves the original hostname in the HTTP Host header and TLS SNI/certificate verification. TLS expiry inspection uses the same validated-address boundary.
+For every HTTP redirect hop, WATCH validates the hostname, connects directly to a selected public IP, and preserves the original hostname for the Host header and TLS SNI/certificate verification.
 
 ## Quick start on Windows
 
@@ -64,7 +44,7 @@ For each HTTP redirect hop, WATCH resolves and validates the hostname, connects 
 .\WATCH.ps1 export
 ```
 
-The export command verifies the repository, runs the demo, and creates a review ZIP directly in `Downloads`.
+The export command verifies the repository, runs the deterministic demo, and creates a review ZIP in `Downloads`.
 
 ## Run a live read-only check
 
@@ -80,7 +60,7 @@ Optional parameters:
   --workspace .watch-data
 ```
 
-Generated evidence is stored below `.watch-data`:
+Generated evidence is stored under `.watch-data`:
 
 ```text
 .watch-data/
@@ -99,12 +79,13 @@ Generated evidence is stored below `.watch-data`:
 .\WATCH.ps1 api
 ```
 
-The command starts the combined read-only dashboard and existing JSON API on loopback.
+The command starts the combined read-only workbench and existing JSON API on loopback.
 
-Default operator pages:
+Operator pages:
 
 - dashboard: `http://127.0.0.1:8000/`
 - target inventory: `http://127.0.0.1:8000/targets`
+- target detail: `http://127.0.0.1:8000/targets/{target_id}`
 - schedule inventory: `http://127.0.0.1:8000/schedules`
 - occurrence history: `http://127.0.0.1:8000/occurrences`
 - missed/stale attention: `http://127.0.0.1:8000/attention`
@@ -113,62 +94,27 @@ Default operator pages:
 - action history: `http://127.0.0.1:8000/actions`
 - human-readable report: `http://127.0.0.1:8000/reports/{run_id}`
 
+Every operator page uses the same navigation. Target links from the dashboard, schedules, occurrences, attention, runs, changes, and actions open a consolidated target page showing configuration, schedules, run/change history, findings, resulting actions, and report links.
+
 Default API endpoints:
 
-- API health: `http://127.0.0.1:8000/api/health`
-- interactive OpenAPI documentation: `http://127.0.0.1:8000/docs`
-- target inventory: `http://127.0.0.1:8000/api/targets`
-- schedule configuration: `http://127.0.0.1:8000/api/schedules`
-- occurrence history: `http://127.0.0.1:8000/api/occurrences`
-- run history: `http://127.0.0.1:8000/api/runs`
-- action history: `http://127.0.0.1:8000/api/actions`
+- health: `http://127.0.0.1:8000/api/health`
+- OpenAPI: `http://127.0.0.1:8000/docs`
+- targets: `http://127.0.0.1:8000/api/targets`
+- schedules: `http://127.0.0.1:8000/api/schedules`
+- occurrences: `http://127.0.0.1:8000/api/occurrences`
+- runs: `http://127.0.0.1:8000/api/runs`
+- actions: `http://127.0.0.1:8000/api/actions`
 
-Implemented API operations:
+The API and workbench use one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. HTML pages are read-only and excluded from the OpenAPI contract.
 
-```text
-GET  /api/health
-GET  /api/targets
-GET  /api/targets/{target_id}
-POST /api/targets
-PUT  /api/targets/{target_id}
-POST /api/targets/{target_id}/runs
-GET  /api/schedules
-GET  /api/schedules/{schedule_id}
-POST /api/schedules
-PUT  /api/schedules/{schedule_id}
-POST /api/schedules/{schedule_id}/occurrences/evaluate
-GET  /api/occurrences
-POST /api/occurrences/attention
-GET  /api/occurrences/{execution_key}
-POST /api/occurrences/{execution_key}/execute
-GET  /api/runs
-GET  /api/runs/{run_id}
-GET  /api/actions
-POST /api/actions/{action_id}/acknowledge
-POST /api/actions/{action_id}/resolve
-GET  /api/reports/{run_id}.md
-```
+## Scheduling and occurrence safety
 
-Schedule definitions link one immutable schedule ID to one existing target, store an enabled state, a timezone-aware start time normalized to UTC, and an interval from 5 minutes to 7 days.
+Schedule definitions link one immutable schedule ID to one target, normalize starts to UTC, and bound intervals from 5 minutes to 7 days.
 
-Occurrence evaluation requires an explicit timezone-aware timestamp. WATCH calculates the latest due boundary, derives a deterministic execution key, and uses exclusive local file creation to claim that occurrence once. Repeated evaluation returns the existing claim. Disabled schedules or targets and evaluations before the start time produce explicit no-claim results.
+Occurrence evaluation derives deterministic UTC boundaries and execution keys. Exclusive local files provide restart-safe claims and permanent at-most-once execution markers. Disabled schedules and targets are rejected before collection.
 
-Executing an occurrence is also explicit. WATCH revalidates the schedule and target, creates a permanent exclusive execution marker, transitions the occurrence to `executing`, then invokes the existing collector and workflow once. Completed and partial workflow runs are linked through `run_id`. Collector exceptions are retained as terminal `failed` occurrence evidence.
-
-The permanent execution marker provides an at-most-once collection boundary across process restarts. A repeated request returns the existing executing or terminal occurrence and does not invoke the collector again. This deliberately favors duplicate prevention over automatic recovery after an interrupted execution.
-
-Occurrence attention inspection provides read-only operational visibility. The API accepts an explicit evaluation time, grace period, and bounded lookback. The operator page performs a read-only current-time inspection with a 15-minute grace period and 10-boundary lookback. WATCH reports:
-
-- `missed-unclaimed` when an enabled schedule boundary is older than the grace period but has no occurrence record;
-- `executing-stale` when an occurrence remains in `executing` beyond the grace period.
-
-Attention inspection derives the same deterministic keys used for claims but creates no records, changes no state, invokes no collector, and performs no recovery. The bounded lookback prevents an old schedule from generating an unbounded response.
-
-The change timeline reads immutable run history and presents each baseline or changed run with its predecessor, changed fields, finding count, action count, and report link. It does not recalculate or mutate historical evidence.
-
-The direct target execution endpoint continues to operate on one enabled registered target per request and persists the resulting run, findings, actions, history, and reports.
-
-The API and dashboard read and write only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, and action writes affect local WATCH state only. Dashboard pages are read-only against that workspace.
+Attention inspection is read-only. It reports `missed-unclaimed` boundaries and `executing-stale` occurrences using bounded grace and lookback values. It creates no claims, invokes no collector, changes no state, and performs no recovery.
 
 ## Automated proof
 
@@ -178,64 +124,30 @@ Every pull request runs:
 - strict mypy checks;
 - pytest with coverage;
 - deterministic demo generation;
-- FastAPI contract and OpenAPI tests;
-- read-only dashboard route and empty-state tests;
-- Playwright Chromium semantic navigation checks;
+- FastAPI and OpenAPI contract tests;
+- read-only route, navigation, not-found, and target-detail tests;
+- Playwright Chromium semantic navigation;
 - browser console-error validation;
-- CI-generated dashboard, target, schedule, occurrence, attention, run, change, action, and report screenshots;
+- screenshots for dashboard, target detail, schedules, occurrences, attention, runs, changes, actions, and reports;
 - Playwright trace retention on browser failure;
-- Windows operator verification;
-- Windows review ZIP export;
+- Windows operator verification and review ZIP export;
 - Linux, Windows, and visual proof-artifact upload.
-
-Superseded branch runs are cancelled automatically so only the latest commit consumes CI capacity.
 
 ## Safety boundaries
 
-WATCH is read-only first.
+WATCH is read-only first. Current controls include explicit target registration, bounded timeouts and redirects, public-address validation, direct connections to validated IP addresses, normal TLS verification, disabled-target guards, startup-configured workspace isolation, local-only action transitions, and read-only operator pages.
 
-Current controls include:
-
-- explicit local target registration;
-- schedule configuration without automatic execution;
-- immutable schedule IDs and target linkage;
-- UTC-normalized schedule start times and bounded intervals;
-- deterministic UTC occurrence boundaries and keys;
-- exclusive, restart-safe local occurrence claims;
-- disabled schedule and target claim guards;
-- claim evaluation with no collector or workflow-run side effects;
-- explicit single-occurrence execution only;
-- permanent execution markers preventing duplicate collection across restarts;
-- controlled occurrence states: claimed, executing, completed, partial, failed, and reserved missed;
-- collector failures retained as bounded local evidence;
-- read-only missed-boundary and stale-execution visibility;
-- bounded 1–100 occurrence attention lookback and 1–1,440 minute grace period;
-- no state change, claim, collection, or retry from attention inspection;
-- HTTP and HTTPS only through the validated target model;
-- disabled targets rejected before collection;
-- public-address validation before each redirect hop;
-- direct HTTP connection to the selected validated IPv4 or IPv6 address;
-- original Host header and TLS SNI/certificate hostname verification preserved;
-- blocking of private, loopback, link-local, reserved, and mixed public/private DNS answers;
-- environment-derived proxy routing disabled for the internal live collector;
-- a five-redirect limit;
-- explicit 1–60 second timeouts;
-- normal TLS certificate and hostname verification;
-- API workspace configured at startup rather than supplied by requests;
-- controlled local-only action state transitions;
-- read-only dashboard pages with no execution or state-transition controls;
-- deterministic browser proof uses only public-safe local sample evidence;
-- no authentication bypass, form submission, crawling, credential storage, retries, automatic recovery, Task Scheduler installation, batch execution, or external modification.
+WATCH does not bypass authentication, submit external forms, crawl sites, store credentials, automatically retry or recover interrupted execution, install Task Scheduler jobs, execute batches, or modify external systems.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
 ```text
-src/watch/           domain, services, collectors, storage, reports, CLI, API, and web workbench
-tests/               automated unit, API, and dashboard route proof
+src/watch/           domain, services, collectors, storage, reports, CLI, API, and workbench
+tests/               unit, API, route, navigation, and target-detail proof
 samples/             public-safe sample inputs
-scripts/             setup, verification, demo, UI proof, workbench launch, and review export
+scripts/             setup, verification, demo, browser proof, launch, and review export
 docs/                architecture, roadmap, safety, and milestone evidence
 .github/workflows/   Linux, Windows, and browser verification
 .watch-data/         generated local state, ignored by Git
@@ -243,4 +155,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next bounded interface improvement is consistent cross-page navigation and target-focused drill-down. Retry policy and Windows Task Scheduler integration remain separate later decisions.
+The next bounded interface slice is M4.6: usability and accessibility improvements such as active navigation state, responsive tables, stronger status hierarchy, keyboard proof, and accessible table/landmark review. Retry policy and Windows Task Scheduler integration remain separate later decisions.
