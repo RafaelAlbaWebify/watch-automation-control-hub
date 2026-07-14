@@ -61,6 +61,39 @@ class TargetUpdate(BaseModel):
         return Target(target_id=target_id, **self.model_dump())
 
 
+class IntervalSchedule(BaseModel):
+    schedule_id: str = Field(min_length=1, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    target_id: str = Field(min_length=1, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    enabled: bool = True
+    start_at: datetime
+    interval_minutes: int = Field(ge=5, le=10080)
+
+    @field_validator("start_at")
+    @classmethod
+    def normalize_start_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("start_at must include a timezone")
+        return value.astimezone(UTC)
+
+
+class IntervalScheduleUpdate(BaseModel):
+    enabled: bool = True
+    start_at: datetime
+    interval_minutes: int = Field(ge=5, le=10080)
+
+    @field_validator("start_at")
+    @classmethod
+    def normalize_start_at(cls, value: datetime) -> datetime:
+        return IntervalSchedule.normalize_start_at(value)
+
+    def apply_to(self, schedule_id: str, target_id: str) -> IntervalSchedule:
+        return IntervalSchedule(
+            schedule_id=schedule_id,
+            target_id=target_id,
+            **self.model_dump(),
+        )
+
+
 class ObservationSet(BaseModel):
     http_status: int | None = Field(default=None, ge=100, le=599)
     final_url: str | None = None
