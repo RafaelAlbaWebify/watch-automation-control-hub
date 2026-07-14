@@ -15,6 +15,14 @@ from watch.tls import inspect_tls_days_remaining
 DnsResolver = Callable[[str], list[str]]
 TlsProbe = Callable[[str, str, int, int], int]
 
+_RESPONSE_HEADER_ALLOWLIST = (
+    "cache-control",
+    "content-language",
+    "etag",
+    "last-modified",
+    "server",
+)
+
 
 class _TitleParser(HTMLParser):
     def __init__(self) -> None:
@@ -49,6 +57,15 @@ def extract_title(html: str) -> str | None:
     parser = _TitleParser()
     parser.feed(html)
     return parser.title
+
+
+def select_response_headers(headers: httpx.Headers) -> dict[str, str]:
+    selected: dict[str, str] = {}
+    for name in _RESPONSE_HEADER_ALLOWLIST:
+        value = headers.get(name)
+        if value is not None:
+            selected[name] = value[:500]
+    return selected
 
 
 def validate_public_ips(addresses: list[str]) -> None:
@@ -145,10 +162,10 @@ class WebsiteCollector:
                     continue
 
                 elapsed_ms = round((perf_counter() - started) * 1000)
-                content_type = response.headers.get("content-type", "")
+                content_type = response.headers.get("content-type")
                 page_title = (
                     extract_title(response.text)
-                    if "text/html" in content_type.lower()
+                    if content_type and "text/html" in content_type.lower()
                     else None
                 )
                 tls_days_remaining: int | None = None
@@ -172,6 +189,9 @@ class WebsiteCollector:
                     response_ms=elapsed_ms,
                     tls_days_remaining=tls_days_remaining,
                     page_title=page_title,
+                    content_type=content_type,
+                    content_length_bytes=len(response.content),
+                    response_headers=select_response_headers(response.headers),
                     resolved_ips=resolved_ips,
                     errors=errors,
                 )
