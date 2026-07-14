@@ -34,6 +34,13 @@ class OccurrenceStatus(StrEnum):
     MISSED = "missed"
 
 
+class RetryAttemptStatus(StrEnum):
+    EXECUTING = "executing"
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
 class OccurrenceAttentionKind(StrEnum):
     MISSED_UNCLAIMED = "missed-unclaimed"
     EXECUTING_STALE = "executing-stale"
@@ -134,6 +141,27 @@ class ScheduleOccurrence(BaseModel):
             return None
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("occurrence timestamps must include a timezone")
+        return value.astimezone(UTC)
+
+
+class RetryAttempt(BaseModel):
+    attempt_id: str = Field(pattern=r"^retry-[a-f0-9]{24}$")
+    execution_key: str = Field(pattern=r"^occ-[a-f0-9]{24}$")
+    attempt_number: int = Field(ge=1, le=3)
+    reason: str = Field(min_length=1, max_length=1000)
+    requested_at: datetime
+    status: RetryAttemptStatus = RetryAttemptStatus.EXECUTING
+    finished_at: datetime | None = None
+    run_id: str | None = None
+    error: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("requested_at", "finished_at")
+    @classmethod
+    def normalize_retry_timestamp(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("retry timestamps must include a timezone")
         return value.astimezone(UTC)
 
 
