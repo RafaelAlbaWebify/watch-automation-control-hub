@@ -109,11 +109,14 @@
 - [x] Browser trace retention on failure
 - [x] Dedicated visual-proof artifact
 
-### M4.3 — Remaining operator views
+### M4.3 — Scheduling views
 
-- [ ] Schedule inventory
-- [ ] Occurrence history
-- [ ] Attention visibility
+- [x] Schedule inventory
+- [x] Occurrence history
+- [x] Missed-boundary attention visibility
+- [x] Stale-execution attention visibility
+- [x] Schedule and occurrence dashboard metrics
+- [x] Playwright semantic checks and screenshots
 - [ ] Change timeline
 
 ## Deferred

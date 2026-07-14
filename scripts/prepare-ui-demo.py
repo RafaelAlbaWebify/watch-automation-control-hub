@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 
-from watch.models import ObservationSet, Target
+from watch.models import IntervalSchedule, ObservationSet, OccurrenceStatus, Target
+from watch.occurrences import OccurrenceService
+from watch.schedules import ScheduleService
 from watch.storage import JsonStore
 from watch.targets import TargetService
 from watch.workflow import execute_supplied_observations
@@ -64,6 +67,38 @@ def prepare(workspace: Path) -> None:
         ),
         workspace,
     )
+
+    schedules = ScheduleService(store)
+    schedules.create(
+        IntervalSchedule(
+            schedule_id="healthy-hourly",
+            target_id=healthy.target_id,
+            start_at=datetime(2026, 1, 1, tzinfo=UTC),
+            interval_minutes=60,
+        )
+    )
+    schedules.create(
+        IntervalSchedule(
+            schedule_id="degraded-hourly",
+            target_id=degraded.target_id,
+            start_at=datetime(2026, 1, 1, tzinfo=UTC),
+            interval_minutes=60,
+        )
+    )
+
+    occurrence, result = OccurrenceService(store).evaluate(
+        "degraded-hourly",
+        datetime(2026, 1, 1, 1, 5, tzinfo=UTC),
+    )
+    if occurrence is None or result != "claimed":
+        raise RuntimeError(f"expected a claimed occurrence, got {result}")
+    stale = occurrence.model_copy(
+        update={
+            "status": OccurrenceStatus.EXECUTING,
+            "execution_started_at": datetime(2026, 1, 1, 1, 6, tzinfo=UTC),
+        }
+    )
+    store.update_occurrence(stale)
 
 
 def main() -> None:

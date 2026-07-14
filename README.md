@@ -39,6 +39,7 @@ local target inventory
   -> Markdown and JSON reports
   -> local operator API
   -> read-only operator dashboard
+  -> read-only schedule, occurrence, and attention views
   -> Playwright browser and screenshot proof
 ```
 
@@ -104,6 +105,9 @@ Default operator pages:
 
 - dashboard: `http://127.0.0.1:8000/`
 - target inventory: `http://127.0.0.1:8000/targets`
+- schedule inventory: `http://127.0.0.1:8000/schedules`
+- occurrence history: `http://127.0.0.1:8000/occurrences`
+- missed/stale attention: `http://127.0.0.1:8000/attention`
 - run history: `http://127.0.0.1:8000/runs`
 - action history: `http://127.0.0.1:8000/actions`
 - human-readable report: `http://127.0.0.1:8000/reports/{run_id}`
@@ -152,7 +156,7 @@ Executing an occurrence is also explicit. WATCH revalidates the schedule and tar
 
 The permanent execution marker provides an at-most-once collection boundary across process restarts. A repeated request returns the existing executing or terminal occurrence and does not invoke the collector again. This deliberately favors duplicate prevention over automatic recovery after an interrupted execution.
 
-Occurrence attention inspection provides read-only operational visibility. The caller supplies an explicit evaluation time, a grace period from 1 to 1,440 minutes, and a lookback from 1 to 100 interval boundaries. WATCH reports:
+Occurrence attention inspection provides read-only operational visibility. The API accepts an explicit evaluation time, grace period, and bounded lookback. The operator page performs a read-only current-time inspection with a 15-minute grace period and 10-boundary lookback. WATCH reports:
 
 - `missed-unclaimed` when an enabled schedule boundary is older than the grace period but has no occurrence record;
 - `executing-stale` when an occurrence remains in `executing` beyond the grace period.
@@ -175,7 +179,7 @@ Every pull request runs:
 - read-only dashboard route and empty-state tests;
 - Playwright Chromium semantic navigation checks;
 - browser console-error validation;
-- CI-generated dashboard, target, run, action, and report screenshots;
+- CI-generated dashboard, target, schedule, occurrence, attention, run, action, and report screenshots;
 - Playwright trace retention on browser failure;
 - Windows operator verification;
 - Windows review ZIP export;
@@ -236,4 +240,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next bounded interface slice is M4.3: expose schedule inventory, occurrence history, and attention visibility through the existing read-only workbench before returning to retry policy or Windows Task Scheduler integration.
+The next bounded interface slice is a change timeline that explains how each run differs from its predecessor. Retry policy and Windows Task Scheduler integration remain separate later decisions.

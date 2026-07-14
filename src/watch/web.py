@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from html import escape
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
-from watch.models import ActionStatus, OperationalAction, Target, WorkflowRun
+from watch.models import (
+    ActionStatus,
+    IntervalSchedule,
+    OccurrenceAttention,
+    OperationalAction,
+    ScheduleOccurrence,
+    Target,
+    WorkflowRun,
+)
+from watch.occurrences import OccurrenceAttentionService
 from watch.storage import JsonStore
 
 _STYLE = """
@@ -42,6 +52,7 @@ th { color: #a0aec0; }
   background: #2d3748;
 }
 .empty { color: #a0aec0; font-style: italic; }
+.note { color: #a0aec0; }
 pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -73,6 +84,9 @@ def _page(title: str, body: str) -> HTMLResponse:
   <nav>
     <a href="/">Dashboard</a>
     <a href="/targets">Targets</a>
+    <a href="/schedules">Schedules</a>
+    <a href="/occurrences">Occurrences</a>
+    <a href="/attention">Attention</a>
     <a href="/runs">Runs</a>
     <a href="/actions">Actions</a>
     <a href="/docs">API</a>
@@ -103,6 +117,61 @@ def _target_rows(targets: list[Target], runs: list[WorkflowRun]) -> str:
             f"<td>{escape(str(target.url))}</td>"
             f"<td><span class=\"badge\">{state}</span></td>"
             f"<td>{escape(latest_status)}</td>"
+            "</tr>"
+        )
+    return "".join(rows)
+
+
+def _schedule_rows(schedules: list[IntervalSchedule]) -> str:
+    rows = []
+    for schedule in schedules:
+        state = "enabled" if schedule.enabled else "disabled"
+        rows.append(
+            "<tr>"
+            f"<td><code>{escape(schedule.schedule_id)}</code></td>"
+            f"<td>{escape(schedule.target_id)}</td>"
+            f"<td><span class=\"badge\">{state}</span></td>"
+            f"<td>{escape(schedule.start_at.isoformat())}</td>"
+            f"<td>{schedule.interval_minutes} minutes</td>"
+            "</tr>"
+        )
+    return "".join(rows)
+
+
+def _occurrence_rows(occurrences: list[ScheduleOccurrence]) -> str:
+    rows = []
+    for occurrence in reversed(occurrences):
+        run = (
+            f"<code>{escape(occurrence.run_id)}</code>"
+            if occurrence.run_id
+            else "not linked"
+        )
+        error = escape(occurrence.error) if occurrence.error else "none"
+        rows.append(
+            "<tr>"
+            f"<td><code>{escape(occurrence.execution_key)}</code></td>"
+            f"<td>{escape(occurrence.schedule_id)}</td>"
+            f"<td>{escape(occurrence.target_id)}</td>"
+            f"<td>{escape(occurrence.occurrence_at.isoformat())}</td>"
+            f"<td><span class=\"badge\">{escape(occurrence.status.value)}</span></td>"
+            f"<td>{run}</td>"
+            f"<td>{error}</td>"
+            "</tr>"
+        )
+    return "".join(rows)
+
+
+def _attention_rows(attention: list[OccurrenceAttention]) -> str:
+    rows = []
+    for item in reversed(attention):
+        rows.append(
+            "<tr>"
+            f"<td>{escape(item.kind.value)}</td>"
+            f"<td>{escape(item.schedule_id)}</td>"
+            f"<td>{escape(item.target_id)}</td>"
+            f"<td>{escape(item.occurrence_at.isoformat())}</td>"
+            f"<td>{item.age_minutes} minutes</td>"
+            f"<td>{escape(item.details)}</td>"
             "</tr>"
         )
     return "".join(rows)
@@ -147,9 +216,12 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def dashboard() -> HTMLResponse:
         targets = store.list_targets()
+        schedules = store.list_schedules()
+        occurrences = store.list_occurrences()
         runs = store.list_runs()
         actions = store.list_actions()
         enabled = sum(target.enabled for target in targets)
+        enabled_schedules = sum(schedule.enabled for schedule in schedules)
         open_actions = sum(action.status == ActionStatus.OPEN for action in actions)
         acknowledged = sum(action.status == ActionStatus.ACKNOWLEDGED for action in actions)
         latest = runs[-1].status.value if runs else "no runs"
@@ -162,6 +234,14 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
 <section class="grid" aria-label="Operational summary">
   <article class="card">
     <h3>Targets</h3><p class="metric">{len(targets)}</p><p>{enabled} enabled</p>
+  </article>
+  <article class="card">
+    <h3>Schedules</h3><p class="metric">{len(schedules)}</p>
+    <p>{enabled_schedules} enabled</p>
+  </article>
+  <article class="card">
+    <h3>Occurrences</h3><p class="metric">{len(occurrences)}</p>
+    <p>persisted execution records</p>
   </article>
   <article class="card">
     <h3>Runs</h3><p class="metric">{len(runs)}</p><p>Latest: {escape(latest)}</p>
@@ -189,6 +269,59 @@ def mount_web_routes(app: FastAPI, workspace: Path) -> None:
             else '<p class="empty">No targets are registered.</p>'
         )
         return _page("Targets", body)
+
+    @app.get("/schedules", response_class=HTMLResponse, include_in_schema=False)
+    def schedules_page() -> HTMLResponse:
+        schedules = store.list_schedules()
+        header = (
+            "<table><thead><tr><th>Schedule</th><th>Target</th><th>State</th>"
+            "<th>Starts</th><th>Interval</th></tr></thead><tbody>"
+        )
+        body = (
+            header + _schedule_rows(schedules) + "</tbody></table>"
+            if schedules
+            else '<p class="empty">No schedules are configured.</p>'
+        )
+        return _page("Schedules", body)
+
+    @app.get("/occurrences", response_class=HTMLResponse, include_in_schema=False)
+    def occurrences_page() -> HTMLResponse:
+        occurrences = store.list_occurrences()
+        header = (
+            "<table><thead><tr><th>Execution key</th><th>Schedule</th>"
+            "<th>Target</th><th>Due at</th><th>Status</th><th>Run</th>"
+            "<th>Error</th></tr></thead><tbody>"
+        )
+        body = (
+            header + _occurrence_rows(occurrences) + "</tbody></table>"
+            if occurrences
+            else '<p class="empty">No schedule occurrences are recorded.</p>'
+        )
+        return _page("Occurrences", body)
+
+    @app.get("/attention", response_class=HTMLResponse, include_in_schema=False)
+    def attention_page() -> HTMLResponse:
+        evaluated_at = datetime.now(UTC)
+        attention = OccurrenceAttentionService(store).inspect(
+            evaluated_at=evaluated_at,
+            grace_minutes=15,
+            lookback_occurrences=10,
+        )
+        header = (
+            "<table><thead><tr><th>Kind</th><th>Schedule</th><th>Target</th>"
+            "<th>Due at</th><th>Age</th><th>Details</th></tr></thead><tbody>"
+        )
+        content = (
+            header + _attention_rows(attention) + "</tbody></table>"
+            if attention
+            else '<p class="empty">No missed or stale occurrences need attention.</p>'
+        )
+        body = (
+            '<p class="note">Read-only inspection using a 15-minute grace period and '
+            f'10-boundary lookback. Evaluated at {escape(evaluated_at.isoformat())}.</p>'
+            + content
+        )
+        return _page("Schedule attention", body)
 
     @app.get("/runs", response_class=HTMLResponse, include_in_schema=False)
     def runs_page() -> HTMLResponse:
