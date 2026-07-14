@@ -25,6 +25,14 @@ class ActionStatus(StrEnum):
     RESOLVED = "resolved"
 
 
+class OccurrenceStatus(StrEnum):
+    CLAIMED = "claimed"
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    MISSED = "missed"
+
+
 class Target(BaseModel):
     target_id: str = Field(min_length=1, pattern=r"^[a-z0-9][a-z0-9-]*$")
     name: str = Field(min_length=1)
@@ -94,6 +102,23 @@ class IntervalScheduleUpdate(BaseModel):
             target_id=target_id,
             **self.model_dump(),
         )
+
+
+class ScheduleOccurrence(BaseModel):
+    execution_key: str = Field(pattern=r"^occ-[a-f0-9]{24}$")
+    schedule_id: str
+    target_id: str
+    occurrence_at: datetime
+    claimed_at: datetime
+    status: OccurrenceStatus = OccurrenceStatus.CLAIMED
+    run_id: str | None = None
+
+    @field_validator("occurrence_at", "claimed_at")
+    @classmethod
+    def normalize_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("occurrence timestamps must include a timezone")
+        return value.astimezone(UTC)
 
 
 class ObservationSet(BaseModel):
