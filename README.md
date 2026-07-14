@@ -39,7 +39,7 @@ local target inventory
   -> Markdown and JSON reports
   -> local operator API
   -> read-only operator dashboard
-  -> read-only schedule, occurrence, and attention views
+  -> read-only schedule, occurrence, attention, and change views
   -> Playwright browser and screenshot proof
 ```
 
@@ -109,6 +109,7 @@ Default operator pages:
 - occurrence history: `http://127.0.0.1:8000/occurrences`
 - missed/stale attention: `http://127.0.0.1:8000/attention`
 - run history: `http://127.0.0.1:8000/runs`
+- change timeline: `http://127.0.0.1:8000/changes`
 - action history: `http://127.0.0.1:8000/actions`
 - human-readable report: `http://127.0.0.1:8000/reports/{run_id}`
 
@@ -163,6 +164,8 @@ Occurrence attention inspection provides read-only operational visibility. The A
 
 Attention inspection derives the same deterministic keys used for claims but creates no records, changes no state, invokes no collector, and performs no recovery. The bounded lookback prevents an old schedule from generating an unbounded response.
 
+The change timeline reads immutable run history and presents each baseline or changed run with its predecessor, changed fields, finding count, action count, and report link. It does not recalculate or mutate historical evidence.
+
 The direct target execution endpoint continues to operate on one enabled registered target per request and persists the resulting run, findings, actions, history, and reports.
 
 The API and dashboard read and write only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, and action writes affect local WATCH state only. Dashboard pages are read-only against that workspace.
@@ -179,7 +182,7 @@ Every pull request runs:
 - read-only dashboard route and empty-state tests;
 - Playwright Chromium semantic navigation checks;
 - browser console-error validation;
-- CI-generated dashboard, target, schedule, occurrence, attention, run, action, and report screenshots;
+- CI-generated dashboard, target, schedule, occurrence, attention, run, change, action, and report screenshots;
 - Playwright trace retention on browser failure;
 - Windows operator verification;
 - Windows review ZIP export;
@@ -240,4 +243,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next bounded interface slice is a change timeline that explains how each run differs from its predecessor. Retry policy and Windows Task Scheduler integration remain separate later decisions.
+The next bounded interface improvement is consistent cross-page navigation and target-focused drill-down. Retry policy and Windows Task Scheduler integration remain separate later decisions.
