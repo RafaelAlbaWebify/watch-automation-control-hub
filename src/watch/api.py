@@ -17,6 +17,7 @@ from watch.models import (
     ObservationSet,
     OccurrenceAttention,
     OperationalAction,
+    RetryAttempt,
     ScheduleOccurrence,
     Target,
     TargetUpdate,
@@ -32,6 +33,15 @@ from watch.occurrences import (
     OccurrenceService,
     OccurrenceTargetNotFoundError,
     normalize_evaluation_time,
+)
+from watch.retries import (
+    RetryAttemptNotFoundError,
+    RetryAttemptService,
+    RetryLimitReachedError,
+    RetryNotAllowedError,
+    RetryOccurrenceNotFoundError,
+    RetryScheduleNotFoundError,
+    RetryTargetNotFoundError,
 )
 from watch.schedules import (
     ScheduleAlreadyExistsError,
@@ -88,6 +98,24 @@ class OccurrenceAttentionRequest(BaseModel):
         return normalize_evaluation_time(value)
 
 
+class RetryRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("reason must not be blank")
+        return stripped
+
+
+class RetryResponse(BaseModel):
+    attempt: RetryAttempt
+    run: WorkflowRun | None
+    result: str
+
+
 def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     store = JsonStore(workspace)
     actions = ActionService(store)
@@ -101,12 +129,17 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
         workspace=workspace,
         collector=website_collector,
     )
+    retry_attempts = RetryAttemptService(
+        store=store,
+        workspace=workspace,
+        collector=website_collector,
+    )
     app = FastAPI(
         title="WATCH Operator API",
-        version="0.10.0",
+        version="0.11.0",
         description=(
             "Local operator access to WATCH targets, schedules, occurrence attention, "
-            "controlled execution, evidence, and actions."
+            "controlled execution, bounded retries, evidence, and actions."
         ),
     )
 
@@ -265,6 +298,34 @@ def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
             run=run,
             result=result,
         )
+
+    @app.post(
+        "/api/occurrences/{execution_key}/retries",
+        response_model=RetryResponse,
+    )
+    def retry_occurrence(execution_key: str, request: RetryRequest) -> RetryResponse:
+        try:
+            attempt, run, result = retry_attempts.retry(execution_key, request.reason)
+        except RetryOccurrenceNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="occurrence not found") from exc
+        except RetryScheduleNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="schedule not found") from exc
+        except RetryTargetNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="target not found") from exc
+        except (RetryNotAllowedError, RetryLimitReachedError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return RetryResponse(attempt=attempt, run=run, result=result)
+
+    @app.get("/api/retry-attempts", response_model=list[RetryAttempt])
+    def list_retry_attempts() -> list[RetryAttempt]:
+        return retry_attempts.list()
+
+    @app.get("/api/retry-attempts/{attempt_id}", response_model=RetryAttempt)
+    def get_retry_attempt(attempt_id: str) -> RetryAttempt:
+        try:
+            return retry_attempts.get(attempt_id)
+        except RetryAttemptNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="retry attempt not found") from exc
 
     @app.get("/api/runs", response_model=list[WorkflowRun])
     def list_runs() -> list[WorkflowRun]:
