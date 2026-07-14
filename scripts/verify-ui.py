@@ -70,6 +70,13 @@ def main() -> None:
             _assert_text(page, "Open report")
             page.screenshot(path=screenshots / "runs.png", full_page=True)
 
+            page.goto(f"{args.base_url}/changes", wait_until="networkidle")
+            _assert_text(page, "Change timeline")
+            _assert_text(page, "baseline evidence")
+            _assert_text(page, "http_status")
+            _assert_text(page, "Previous run")
+            page.screenshot(path=screenshots / "changes.png", full_page=True)
+
             page.get_by_role("link", name="Actions").click()
             _assert_text(page, "UNEXPECTED_HTTP_STATUS")
             _assert_text(page, "SLOW_RESPONSE")

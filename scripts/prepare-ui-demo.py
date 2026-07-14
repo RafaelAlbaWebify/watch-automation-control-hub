@@ -67,6 +67,20 @@ def prepare(workspace: Path) -> None:
         ),
         workspace,
     )
+    changed_run, _, _ = execute_supplied_observations(
+        degraded,
+        ObservationSet(
+            http_status=200,
+            final_url="https://example.org/",
+            response_ms=310,
+            tls_days_remaining=45,
+            page_title="Recovered service",
+            resolved_ips=["93.184.216.34"],
+        ),
+        workspace,
+    )
+    if not changed_run.previous_run_id or not changed_run.changed_fields:
+        raise RuntimeError("expected deterministic previous-run change evidence")
 
     schedules = ScheduleService(store)
     schedules.create(
