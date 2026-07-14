@@ -36,16 +36,36 @@ def main() -> None:
         try:
             page.goto(args.base_url, wait_until="networkidle")
             _assert_text(page, "Operator dashboard")
+            page.keyboard.press("Tab")
+            skip_link = page.get_by_role("link", name="Skip to main content")
+            skip_link.wait_for(state="visible")
+            assert skip_link.evaluate("element => element === document.activeElement")
+            page.keyboard.press("Enter")
+            assert page.locator("#main-content").evaluate(
+                "element => element === document.activeElement"
+            )
+            assert (
+                page.get_by_role("link", name="Dashboard").get_attribute("aria-current")
+                == "page"
+            )
             _assert_text(page, "Target drill-down")
             _assert_text(page, "Changes")
             page.screenshot(path=screenshots / "dashboard.png", full_page=True)
 
             page.get_by_role("link", name="Targets").click()
+            assert (
+                page.get_by_role("link", name="Targets").get_attribute("aria-current")
+                == "page"
+            )
             _assert_text(page, "Healthy public demo")
             _assert_text(page, "Degraded public demo")
             _assert_text(page, "Disabled public demo")
             page.get_by_role("link", name="Degraded public demo").click()
             page.get_by_label("Target summary").wait_for(state="visible")
+            assert (
+                page.get_by_role("link", name="Targets").get_attribute("aria-current")
+                == "page"
+            )
             _assert_text(page, "degraded-hourly")
             _assert_text(page, "Run and change history")
             _assert_text(page, "http_status")
