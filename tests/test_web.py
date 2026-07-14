@@ -64,7 +64,7 @@ def test_dashboard_exposes_existing_targets_runs_actions_and_report(tmp_path: Pa
     assert run_id in runs.text
     assert "Open report" in runs.text
     assert actions.status_code == 200
-    assert "unexpected-http-status" in actions.text
+    assert "UNEXPECTED_HTTP_STATUS" in actions.text
     assert report.status_code == 200
     assert "WATCH Operational Report" in report.text
 
