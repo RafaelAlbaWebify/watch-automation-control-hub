@@ -25,7 +25,7 @@ local target inventory
   -> persisted interval schedule definitions
   -> deterministic due-occurrence calculation
   -> atomic idempotent occurrence claims
-  -> explicit single-target execution
+  -> explicit at-most-once occurrence execution
   -> DNS resolution and public-address validation
   -> address-pinned HTTP request and redirect inspection
   -> response timing and page-title extraction
@@ -83,6 +83,7 @@ Generated evidence is stored below `.watch-data`:
 ├── targets/
 ├── schedules/
 ├── occurrences/
+├── occurrence-locks/
 ├── runs/
 ├── actions/
 └── reports/
@@ -120,6 +121,7 @@ PUT  /api/schedules/{schedule_id}
 POST /api/schedules/{schedule_id}/occurrences/evaluate
 GET  /api/occurrences
 GET  /api/occurrences/{execution_key}
+POST /api/occurrences/{execution_key}/execute
 GET  /api/runs
 GET  /api/runs/{run_id}
 GET  /api/actions
@@ -132,11 +134,13 @@ Schedule definitions link one immutable schedule ID to one existing target, stor
 
 Occurrence evaluation requires an explicit timezone-aware timestamp. WATCH calculates the latest due boundary, derives a deterministic execution key, and uses exclusive local file creation to claim that occurrence once. Repeated evaluation returns the existing claim. Disabled schedules or targets and evaluations before the start time produce explicit no-claim results.
 
-Occurrence claims remain separate from workflow runs. Evaluation does not invoke the collector, execute a target, retry work, or install a background task.
+Executing an occurrence is also explicit. WATCH revalidates the schedule and target, creates a permanent exclusive execution marker, transitions the occurrence to `executing`, then invokes the existing collector and workflow once. Completed and partial workflow runs are linked through `run_id`. Collector exceptions are retained as terminal `failed` occurrence evidence.
 
-The explicit execution endpoint continues to operate on one enabled registered target per request and persists the resulting run, findings, actions, history, and reports.
+The permanent execution marker provides an at-most-once collection boundary across process restarts. A repeated request returns the existing executing or terminal occurrence and does not invoke the collector again. This deliberately favors duplicate prevention over automatic recovery after an interrupted execution; missed or interrupted execution handling remains a later policy slice.
 
-The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, and action writes affect local WATCH state only.
+The direct target execution endpoint continues to operate on one enabled registered target per request and persists the resulting run, findings, actions, history, and reports.
+
+The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, occurrence, execution-marker, and action writes affect local WATCH state only.
 
 ## Automated proof
 
@@ -167,7 +171,10 @@ Current controls include:
 - exclusive, restart-safe local occurrence claims;
 - disabled schedule and target claim guards;
 - claim evaluation with no collector or workflow-run side effects;
-- explicit one-target execution;
+- explicit single-occurrence execution only;
+- permanent execution markers preventing duplicate collection across restarts;
+- controlled occurrence states: claimed, executing, completed, partial, failed, and reserved missed;
+- collector failures retained as bounded local evidence;
 - HTTP and HTTPS only through the validated target model;
 - disabled targets rejected before collection;
 - public-address validation before each redirect hop;
@@ -180,7 +187,7 @@ Current controls include:
 - normal TLS certificate and hostname verification;
 - API workspace configured at startup rather than supplied by requests;
 - controlled local-only action state transitions;
-- no authentication bypass, form submission, crawling, credential storage, scheduled collection, retries, Task Scheduler installation, batch execution, or external modification.
+- no authentication bypass, form submission, crawling, credential storage, retries, automatic recovery, Task Scheduler installation, batch execution, or external modification.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
 
@@ -198,4 +205,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-M3.2 provides deterministic occurrence calculation and claims without execution. The next bounded slice is controlled occurrence execution and result transitions, followed by missed-run and retry policy before any Windows Task Scheduler installation.
+M3.2 now includes deterministic claims and explicit at-most-once occurrence execution. The next bounded slice is missed or interrupted occurrence visibility and an explicit retry policy before any Windows Task Scheduler installation.
