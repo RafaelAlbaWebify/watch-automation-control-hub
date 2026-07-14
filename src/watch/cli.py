@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -8,6 +9,8 @@ import typer
 
 from watch.collectors import WebsiteCollector
 from watch.models import ObservationSet, Target
+from watch.runner import DueWorkPlanner
+from watch.storage import JsonStore
 from watch.workflow import execute_supplied_observations
 
 app = typer.Typer(no_args_is_help=True, help="WATCH automation-control workbench.")
@@ -38,6 +41,32 @@ def demo(
     typer.echo(f"Actions returned: {len(actions)}")
     for report in reports:
         typer.echo(f"Report: {report}")
+
+
+@app.command("plan-due")
+def plan_due(
+    evaluated_at: Annotated[
+        str,
+        typer.Option(help="Explicit timezone-aware ISO 8601 evaluation timestamp."),
+    ],
+    workspace: Annotated[
+        Path,
+        typer.Option(help="Existing WATCH workspace to inspect without modification."),
+    ] = Path(".watch-data"),
+) -> None:
+    try:
+        parsed = datetime.fromisoformat(evaluated_at.replace("Z", "+00:00"))
+        plan = DueWorkPlanner(JsonStore(workspace)).plan(parsed)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--evaluated-at") from exc
+
+    typer.echo(
+        json.dumps(
+            [item.model_dump(mode="json") for item in plan],
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 @app.command()
