@@ -68,7 +68,7 @@ def _host_header(url: httpx.URL) -> str:
     if ":" in hostname and not hostname.startswith("["):
         hostname = f"[{hostname}]"
     default_port = 443 if url.scheme == "https" else 80
-    return hostname if url.port == default_port else f"{hostname}:{url.port}"
+    return hostname if url.port in (None, default_port) else f"{hostname}:{url.port}"
 
 
 def _pinned_request(url: str, address: str) -> tuple[httpx.URL, dict[str, str], dict[str, str]]:
