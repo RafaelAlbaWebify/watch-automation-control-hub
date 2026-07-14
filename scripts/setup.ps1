@@ -8,10 +8,11 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 
 if (-not (Test-Path ".venv")) {
     python -m venv .venv
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 $Python = Join-Path $Root ".venv\Scripts\python.exe"
-& $Python -m pip install --upgrade pip
-& $Python -m pip install -e ".[dev]"
+& $Python -m pip install --disable-pip-version-check --no-input -e ".[dev]"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "WATCH setup PASS" -ForegroundColor Green
