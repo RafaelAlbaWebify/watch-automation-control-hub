@@ -79,6 +79,76 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  visual-proof:
+    needs: linux-verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install WATCH and Playwright
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m playwright install --with-deps chromium
+
+      - name: Prepare deterministic UI workspace
+        run: |
+          mkdir -p artifacts/ui
+          python scripts/prepare-ui-demo.py --workspace artifacts/ui/workspace
+
+      - name: Start WATCH workbench
+        env:
+          WATCH_WORKSPACE: ${{ github.workspace }}/artifacts/ui/workspace
+        run: |
+          python -m uvicorn watch.webapp:app --host 127.0.0.1 --port 8000 \
+            > artifacts/ui/server.log 2>&1 &
+          echo $! > artifacts/ui/server.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat artifacts/ui/server.log
+          exit 1
+
+      - name: Run Playwright semantic and screenshot proof
+        run: |
+          python scripts/verify-ui.py \
+            --base-url http://127.0.0.1:8000 \
+            --artifacts artifacts/ui
+
+      - name: Visual proof summary
+        if: always()
+        run: |
+          {
+            echo "# WATCH browser verification"
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Workflow: $GITHUB_WORKFLOW"
+            echo "- Run: $GITHUB_RUN_ID"
+            echo "- Result: ${{ job.status }}"
+            echo "- Browser: Chromium"
+          } > artifacts/ui/verification-summary.md
+
+      - name: Upload visual proof artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-visual-proof-${{ github.run_number }}
+          path: artifacts/ui/
+          if-no-files-found: error
+          retention-days: 30
+
   windows-operator-workflow:
     runs-on: windows-latest
     timeout-minutes: 15
