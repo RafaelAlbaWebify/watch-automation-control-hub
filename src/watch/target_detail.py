@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 
 from watch.models import OperationalAction, WorkflowRun
 from watch.storage import JsonStore
-from watch.web_layout import page
+from watch.web_layout import badge, page, table
 
 
 def _run_rows(runs: list[WorkflowRun], action_counts: dict[str, int]) -> str:
@@ -20,7 +20,7 @@ def _run_rows(runs: list[WorkflowRun], action_counts: dict[str, int]) -> str:
             "<tr>"
             f"<td>{escape(run.started_at.isoformat())}</td>"
             f"<td><code>{escape(run.run_id)}</code></td>"
-            f'<td><span class="badge">{escape(run.status.value)}</span></td>'
+            f"<td>{badge(run.status.value)}</td>"
             f"<td>{escape(changes)}</td>"
             f"<td>{len(run.findings)}</td>"
             f"<td>{action_counts.get(run.run_id, 0)}</td>"
@@ -35,8 +35,8 @@ def _action_rows(actions: list[OperationalAction]) -> str:
     for action in reversed(actions):
         rows.append(
             "<tr>"
-            f"<td>{escape(action.severity.value)}</td>"
-            f'<td><span class="badge">{escape(action.status.value)}</span></td>'
+            f"<td>{badge(action.severity.value)}</td>"
+            f"<td>{badge(action.status.value)}</td>"
             f"<td><code>{escape(action.finding_code)}</code></td>"
             f"<td>{escape(action.summary)}</td>"
             f"<td><code>{escape(action.source_run_id)}</code></td>"
@@ -75,59 +75,75 @@ def mount_target_detail_routes(app: FastAPI, workspace: Path) -> None:
         tags = ", ".join(target.tags) or "none"
         expected = ", ".join(str(code) for code in target.expected_status_codes)
         latest = runs[-1].status.value if runs else "never run"
+        configuration = (
+            "<tbody>"
+            f"<tr><th>ID</th><td><code>{escape(target.target_id)}</code></td></tr>"
+            f"<tr><th>URL</th><td>{escape(str(target.url))}</td></tr>"
+            f"<tr><th>Tags</th><td>{escape(tags)}</td></tr>"
+            f"<tr><th>Expected status</th><td>{escape(expected)}</td></tr>"
+            f"<tr><th>Timeout</th><td>{target.timeout_seconds} seconds</td></tr>"
+            f"<tr><th>Latest run</th><td>{badge(latest)}</td></tr>"
+            "</tbody>"
+        )
         summary = f"""
 <section class="grid" aria-label="Target summary">
-  <article class="card"><h3>State</h3><p class="metric">{state}</p></article>
+  <article class="card"><h3>State</h3><p class="metric">{badge(state)}</p></article>
   <article class="card"><h3>Schedules</h3><p class="metric">{len(schedules)}</p></article>
   <article class="card"><h3>Runs</h3><p class="metric">{len(runs)}</p></article>
   <article class="card"><h3>Actions</h3><p class="metric">{len(actions)}</p></article>
 </section>
-<section>
-  <h3>Configuration</h3>
-  <table><tbody>
-    <tr><th>ID</th><td><code>{escape(target.target_id)}</code></td></tr>
-    <tr><th>URL</th><td>{escape(str(target.url))}</td></tr>
-    <tr><th>Tags</th><td>{escape(tags)}</td></tr>
-    <tr><th>Expected status</th><td>{escape(expected)}</td></tr>
-    <tr><th>Timeout</th><td>{target.timeout_seconds} seconds</td></tr>
-    <tr><th>Latest run</th><td>{escape(latest)}</td></tr>
-  </tbody></table>
-</section>
+<section><h3>Configuration</h3>{table(configuration, "Target configuration", compact=True)}</section>
 """
-        schedule_section = (
-            "<section><h3>Schedules</h3><table><thead><tr>"
-            "<th>Schedule</th><th>State</th><th>Starts</th><th>Interval</th>"
-            "</tr></thead><tbody>"
+        schedule_content = (
+            "<thead><tr><th>Schedule</th><th>State</th><th>Starts</th>"
+            "<th>Interval</th></tr></thead><tbody>"
             + "".join(
                 "<tr>"
                 f"<td><code>{escape(schedule.schedule_id)}</code></td>"
-                f"<td>{'enabled' if schedule.enabled else 'disabled'}</td>"
+                f"<td>{badge('enabled' if schedule.enabled else 'disabled')}</td>"
                 f"<td>{escape(schedule.start_at.isoformat())}</td>"
                 f"<td>{schedule.interval_minutes} minutes</td>"
                 "</tr>"
                 for schedule in schedules
             )
-            + "</tbody></table></section>"
+            + "</tbody>"
+        )
+        schedule_section = (
+            "<section><h3>Schedules</h3>"
+            + table(schedule_content, "Schedules linked to this target")
+            + "</section>"
             if schedules
             else '<section><h3>Schedules</h3><p class="empty">No schedules.</p></section>'
         )
-        run_section = (
-            "<section><h3>Run and change history</h3><table><thead><tr>"
-            "<th>Observed at</th><th>Run</th><th>Status</th><th>Changes</th>"
-            "<th>Findings</th><th>Actions</th><th>Evidence</th>"
+        run_content = (
+            "<thead><tr><th>Observed at</th><th>Run</th><th>Status</th>"
+            "<th>Changes</th><th>Findings</th><th>Actions</th><th>Evidence</th>"
             "</tr></thead><tbody>"
             + _run_rows(runs, action_counts)
-            + "</tbody></table></section>"
+            + "</tbody>"
+        )
+        run_section = (
+            "<section><h3>Run and change history</h3>"
+            + table(run_content, "Run and change history for this target")
+            + "</section>"
             if runs
             else '<section><h3>Run and change history</h3><p class="empty">No runs.</p></section>'
         )
-        action_section = (
-            "<section><h3>Operational actions</h3><table><thead><tr>"
-            "<th>Severity</th><th>Status</th><th>Code</th><th>Summary</th>"
-            "<th>Source run</th></tr></thead><tbody>"
+        action_content = (
+            "<thead><tr><th>Severity</th><th>Status</th><th>Code</th>"
+            "<th>Summary</th><th>Source run</th></tr></thead><tbody>"
             + _action_rows(actions)
-            + "</tbody></table></section>"
+            + "</tbody>"
+        )
+        action_section = (
+            "<section><h3>Operational actions</h3>"
+            + table(action_content, "Operational actions for this target")
+            + "</section>"
             if actions
             else '<section><h3>Operational actions</h3><p class="empty">No actions.</p></section>'
         )
-        return page(target.name, summary + schedule_section + run_section + action_section)
+        return page(
+            target.name,
+            summary + schedule_section + run_section + action_section,
+            current_path=f"/targets/{target_id}",
+        )
