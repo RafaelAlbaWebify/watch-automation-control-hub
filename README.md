@@ -2,7 +2,7 @@
 
 > Workflow Automation & Technical Control Hub
 
-WATCH is a local-first IT automation and operational-control workbench. It executes repeatable read-only workflows, records immutable evidence, detects changes, creates traceable actions, and generates review-ready reports.
+WATCH is a local-first IT automation and operational-control workbench. It manages approved public targets, executes repeatable read-only checks, records immutable evidence, detects changes, creates traceable actions, and generates review-ready reports.
 
 ## Portfolio purpose
 
@@ -18,10 +18,10 @@ WATCH controls **which workflow runs, against which target, with what result, wh
 
 ## Current verified capability
 
-WATCH currently supports an end-to-end public website operational-health workflow:
+WATCH currently supports:
 
 ```text
-explicit public target
+local target inventory
   -> DNS resolution and public-address validation
   -> bounded HTTP request and redirect inspection
   -> response timing and page-title extraction
@@ -29,9 +29,10 @@ explicit public target
   -> deterministic findings
   -> previous-run comparison
   -> action creation or reuse
+  -> action acknowledgement and resolution
   -> immutable run history
   -> Markdown and JSON reports
-  -> read-only operator API
+  -> local operator API
 ```
 
 Collected evidence includes:
@@ -75,12 +76,13 @@ Generated evidence is stored below `.watch-data`:
 
 ```text
 .watch-data/
+├── targets/
 ├── runs/
 ├── actions/
 └── reports/
 ```
 
-## Run the read-only operator API
+## Run the local operator API
 
 ```powershell
 .\WATCH.ps1 api
@@ -90,20 +92,27 @@ The default local endpoints are:
 
 - API health: `http://127.0.0.1:8000/api/health`
 - interactive OpenAPI documentation: `http://127.0.0.1:8000/docs`
+- target inventory: `http://127.0.0.1:8000/api/targets`
 - run history: `http://127.0.0.1:8000/api/runs`
 - action history: `http://127.0.0.1:8000/api/actions`
 
-The first API slice is deliberately read-only:
+Implemented API operations:
 
 ```text
-GET /api/health
-GET /api/runs
-GET /api/runs/{run_id}
-GET /api/actions
-GET /api/reports/{run_id}.md
+GET  /api/health
+GET  /api/targets
+GET  /api/targets/{target_id}
+POST /api/targets
+PUT  /api/targets/{target_id}
+GET  /api/runs
+GET  /api/runs/{run_id}
+GET  /api/actions
+POST /api/actions/{action_id}/acknowledge
+POST /api/actions/{action_id}/resolve
+GET  /api/reports/{run_id}.md
 ```
 
-The API reads one configured workspace. Request parameters cannot select arbitrary filesystem paths. No collection, scheduling, acknowledgement, resolution, or external-write endpoint is currently exposed.
+The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target and action writes affect local WATCH state only; no external remediation or automatic collection is triggered by those endpoints.
 
 ## Automated proof
 
@@ -118,12 +127,15 @@ Every pull request runs:
 - Windows review ZIP export;
 - Linux and Windows proof-artifact upload.
 
+Superseded branch runs are cancelled automatically so only the latest commit consumes CI capacity.
+
 ## Safety boundaries
 
 WATCH is read-only first.
 
 Current controls include:
 
+- explicit local target registration;
 - one explicit target per live command;
 - HTTP and HTTPS only through the validated target model;
 - public-address validation before each redirect hop;
@@ -132,7 +144,8 @@ Current controls include:
 - explicit 1–60 second timeouts;
 - normal TLS certificate and hostname verification;
 - API workspace configured at startup rather than supplied by requests;
-- no authentication, form submission, crawling, credential storage, or external modification.
+- controlled local-only action state transitions;
+- no authentication bypass, form submission, crawling, credential storage, or external modification.
 
 Known limitation: the HTTP library performs its own DNS resolution after validation, so transport-level HTTP address pinning remains tracked in Issue #11. TLS inspection is already pinned to a validated address.
 
@@ -141,7 +154,7 @@ See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md]
 ## Repository layout
 
 ```text
-src/watch/           domain, workflow, collectors, storage, reports, CLI, and API
+src/watch/           domain, targets, actions, workflow, collectors, storage, reports, CLI, and API
 tests/               automated proof
 samples/             public-safe sample inputs
 scripts/             setup, verification, demo, API, and review export
@@ -152,4 +165,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-The next operator slice will add controlled action acknowledgement and resolution, then target inventory and workflow execution. Transport-level HTTP address pinning remains a security-hardening prerequisite before broader scheduling or multi-target execution.
+The next bounded operator slice is controlled workflow execution for an already registered target. It must remain explicit and single-target; broader scheduling or multi-target execution waits for HTTP transport address pinning and M3 design.
