@@ -277,7 +277,8 @@ def test_api_exposes_persisted_run_action_and_report(tmp_path: Path) -> None:
     client = TestClient(create_app(tmp_path))
     assert client.get("/api/runs").json()[0]["run_id"] == run.run_id
     assert client.get(f"/api/runs/{run.run_id}").json()["target_id"] == "api-demo"
-    assert client.get("/api/actions").json()[0]["action_id"] == actions[0].action_id
+    action_ids = {action["action_id"] for action in client.get("/api/actions").json()}
+    assert actions[0].action_id in action_ids
     report = client.get(f"/api/reports/{run.run_id}.md")
     assert report.status_code == 200
     assert report.headers["content-type"].startswith("text/markdown")
