@@ -27,6 +27,7 @@ class ActionStatus(StrEnum):
 
 class OccurrenceStatus(StrEnum):
     CLAIMED = "claimed"
+    EXECUTING = "executing"
     COMPLETED = "completed"
     PARTIAL = "partial"
     FAILED = "failed"
@@ -111,11 +112,21 @@ class ScheduleOccurrence(BaseModel):
     occurrence_at: datetime
     claimed_at: datetime
     status: OccurrenceStatus = OccurrenceStatus.CLAIMED
+    execution_started_at: datetime | None = None
+    finished_at: datetime | None = None
     run_id: str | None = None
+    error: str | None = Field(default=None, max_length=2000)
 
-    @field_validator("occurrence_at", "claimed_at")
+    @field_validator(
+        "occurrence_at",
+        "claimed_at",
+        "execution_started_at",
+        "finished_at",
+    )
     @classmethod
-    def normalize_timestamp(cls, value: datetime) -> datetime:
+    def normalize_timestamp(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("occurrence timestamps must include a timezone")
         return value.astimezone(UTC)
