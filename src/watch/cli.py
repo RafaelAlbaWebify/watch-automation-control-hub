@@ -9,11 +9,19 @@ import typer
 
 from watch.collectors import WebsiteCollector
 from watch.models import ObservationSet, Target
+from watch.one_shot_runner import OneShotDueRunner
 from watch.runner import DueWorkPlanner
 from watch.storage import JsonStore
 from watch.workflow import execute_supplied_observations
 
 app = typer.Typer(no_args_is_help=True, help="WATCH automation-control workbench.")
+
+
+def _parse_evaluated_at(value: str) -> datetime:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--evaluated-at") from exc
 
 
 @app.command()
@@ -55,14 +63,48 @@ def plan_due(
     ] = Path(".watch-data"),
 ) -> None:
     try:
-        parsed = datetime.fromisoformat(evaluated_at.replace("Z", "+00:00"))
-        plan = DueWorkPlanner(JsonStore(workspace)).plan(parsed)
+        plan = DueWorkPlanner(JsonStore(workspace)).plan(
+            _parse_evaluated_at(evaluated_at)
+        )
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--evaluated-at") from exc
 
     typer.echo(
         json.dumps(
             [item.model_dump(mode="json") for item in plan],
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+@app.command("run-due-once")
+def run_due_once(
+    evaluated_at: Annotated[
+        str,
+        typer.Option(help="Explicit timezone-aware ISO 8601 evaluation timestamp."),
+    ],
+    max_work: Annotated[
+        int,
+        typer.Option(min=1, max=10, help="Maximum latest-due items to execute."),
+    ],
+    workspace: Annotated[
+        Path,
+        typer.Option(help="WATCH workspace containing approved targets and schedules."),
+    ] = Path(".watch-data"),
+) -> None:
+    try:
+        summary = OneShotDueRunner(
+            store=JsonStore(workspace),
+            workspace=workspace,
+            collector=WebsiteCollector(),
+        ).run(_parse_evaluated_at(evaluated_at), max_work)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    typer.echo(
+        json.dumps(
+            summary.model_dump(mode="json"),
             indent=2,
             sort_keys=True,
         )

@@ -12,6 +12,7 @@ WATCH is read-only first.
 - inspect bounded missed and stale occurrence attention without changing state;
 - retry a terminal failed occurrence only through an explicit operator request with a recorded reason;
 - plan the latest due boundary for each schedule without creating claims or executing work;
+- execute a bounded set of latest-due items through one explicit foreground invocation;
 - produce local reports;
 - run future approved public checks at low volume with explicit timeouts.
 
@@ -38,6 +39,18 @@ WATCH is read-only first.
 - planning creates no claim, execution marker, retry attempt, run, action, or report;
 - planning invokes no collector;
 - planning performs no catch-up scan, batch execution, automatic retry, or background work.
+
+## One-shot runner boundary
+
+- the caller supplies an explicit timezone-aware evaluation timestamp and a maximum-work limit from 1 to 10;
+- the runner reuses the read-only planner and selects only `ready-to-claim` items;
+- schedules are processed in deterministic order;
+- each selected item is claimed through the existing atomic occurrence service;
+- each claimed item is executed through the existing permanent at-most-once execution boundary;
+- completed, partial, and failed results are reported separately with optional run linkage;
+- repeated invocation at the same boundary does not recollect finished work;
+- the command runs once in the foreground and then exits;
+- no catch-up scan, retry, concurrency, timer, loop, background service, or Task Scheduler modification is permitted.
 
 ## Not allowed without explicit design and approval
 
