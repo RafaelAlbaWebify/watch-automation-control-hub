@@ -59,7 +59,7 @@
 - [x] Schedule list, detail, create, and update API
 - [x] Configuration-only safety proof with no collector invocation
 
-### M3.2 — Due evaluation, claims, controlled execution, and visibility
+### M3.2 — Due evaluation, claims, controlled execution, and recovery evidence
 
 - [x] Deterministic occurrence calculation
 - [x] Idempotent execution keys
@@ -77,12 +77,17 @@
 - [x] Stale executing occurrence visibility
 - [x] Explicit grace and lookback limits
 - [x] Read-only attention API and persistence proof
-- [ ] Explicit bounded retry policy with separate attempt evidence
+- [x] Explicit bounded retry policy with separate attempt evidence
+- [x] Required operator reason and maximum-three-attempt enforcement
+- [x] Original occurrence immutability during retry
+- [x] Retry list and detail API
 
-### M3.3 — Windows Task Scheduler adapter
+### M3.3 — One-shot runner and Windows Task Scheduler adapter
 
-- [ ] One due-runner scheduled task
+- [ ] Read-only due-work planning endpoint or command
+- [ ] One-shot bounded runner with explicit result summary
 - [ ] Dry-run and verification commands
+- [ ] One due-runner scheduled task
 - [ ] Installation and uninstall workflow
 - [ ] Rollback-safe local configuration
 - [ ] Scheduled proof package
@@ -93,6 +98,7 @@
 - [ ] Schedule inventory
 - [ ] Occurrence history
 - [ ] Attention visibility
+- [ ] Retry attempt history
 - [ ] Run history
 - [ ] Change timeline
 - [ ] Pending actions
