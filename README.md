@@ -22,6 +22,7 @@ WATCH currently supports:
 
 ```text
 local target inventory
+  -> persisted interval schedule definitions
   -> explicit single-target execution
   -> DNS resolution and public-address validation
   -> address-pinned HTTP request and redirect inspection
@@ -78,6 +79,7 @@ Generated evidence is stored below `.watch-data`:
 ```text
 .watch-data/
 ├── targets/
+├── schedules/
 ├── runs/
 ├── actions/
 └── reports/
@@ -94,6 +96,7 @@ The default local endpoints are:
 - API health: `http://127.0.0.1:8000/api/health`
 - interactive OpenAPI documentation: `http://127.0.0.1:8000/docs`
 - target inventory: `http://127.0.0.1:8000/api/targets`
+- schedule configuration: `http://127.0.0.1:8000/api/schedules`
 - run history: `http://127.0.0.1:8000/api/runs`
 - action history: `http://127.0.0.1:8000/api/actions`
 
@@ -106,6 +109,10 @@ GET  /api/targets/{target_id}
 POST /api/targets
 PUT  /api/targets/{target_id}
 POST /api/targets/{target_id}/runs
+GET  /api/schedules
+GET  /api/schedules/{schedule_id}
+POST /api/schedules
+PUT  /api/schedules/{schedule_id}
 GET  /api/runs
 GET  /api/runs/{run_id}
 GET  /api/actions
@@ -114,9 +121,11 @@ POST /api/actions/{action_id}/resolve
 GET  /api/reports/{run_id}.md
 ```
 
-The execution endpoint is explicit and operates on one enabled registered target per request. It persists the resulting run, findings, actions, history, and reports in the configured workspace. It does not introduce scheduling, batch execution, retries, background tasks, or external remediation.
+Schedule definitions are configuration only. Each schedule links to one existing target, stores an enabled state, timezone-aware start time normalized to UTC, and an interval from 5 minutes to 7 days. Creating or updating a schedule does not invoke the collector, create a run, or install a background task.
 
-The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target and action writes affect local WATCH state only.
+The execution endpoint remains explicit and operates on one enabled registered target per request. It persists the resulting run, findings, actions, history, and reports in the configured workspace.
+
+The API reads and writes only one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. Target, schedule, and action writes affect local WATCH state only.
 
 ## Automated proof
 
@@ -140,6 +149,9 @@ WATCH is read-only first.
 Current controls include:
 
 - explicit local target registration;
+- schedule configuration without automatic execution;
+- immutable schedule IDs and target linkage;
+- UTC-normalized schedule start times and bounded intervals;
 - explicit one-target execution;
 - HTTP and HTTPS only through the validated target model;
 - disabled targets rejected before collection;
@@ -153,14 +165,14 @@ Current controls include:
 - normal TLS certificate and hostname verification;
 - API workspace configured at startup rather than supplied by requests;
 - controlled local-only action state transitions;
-- no authentication bypass, form submission, crawling, credential storage, scheduling, batch execution, or external modification.
+- no authentication bypass, form submission, crawling, credential storage, due-time execution, retries, Task Scheduler installation, batch execution, or external modification.
 
 See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
 ```text
-src/watch/           domain, targets, actions, workflow, collectors, storage, reports, CLI, and API
+src/watch/           domain, targets, schedules, actions, workflow, collectors, storage, reports, CLI, and API
 tests/               automated proof
 samples/             public-safe sample inputs
 scripts/             setup, verification, demo, API, and review export
@@ -171,4 +183,4 @@ docs/                architecture, roadmap, safety, and milestone evidence
 
 ## Next milestone
 
-M2 and HTTP transport hardening are complete as bounded foundations. The next milestone is M3 design for schedules, idempotent execution, retry policy, missed-run visibility, and Windows Task Scheduler integration.
+M3.1 provides schedule configuration only. The next bounded slice is M3.2: deterministic due-time evaluation, persisted occurrence records, and atomic idempotent claims before any scheduled collection is allowed.
