@@ -100,16 +100,21 @@
 - [x] Empty-state and populated-state route tests
 - [x] Linux and Windows CI proof
 
-### M4.2 — Remaining operator views and browser proof
+### M4.2 — Browser proof
+
+- [x] Deterministic public-safe sample workspace
+- [x] Playwright Chromium semantic workflow tests
+- [x] Browser console-error validation
+- [x] CI-generated dashboard, target, run, action, and report screenshots
+- [x] Browser trace retention on failure
+- [x] Dedicated visual-proof artifact
+
+### M4.3 — Remaining operator views
 
 - [ ] Schedule inventory
 - [ ] Occurrence history
 - [ ] Attention visibility
 - [ ] Change timeline
-- [ ] Deterministic sample workspace for browser proof
-- [ ] Playwright semantic workflow tests
-- [ ] CI-generated dashboard screenshots
-- [ ] Browser trace retention on failure
 
 ## Deferred
 
