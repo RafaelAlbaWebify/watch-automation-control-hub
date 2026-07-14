@@ -2,29 +2,48 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Protocol
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from watch.actions import ActionNotFoundError, ActionService, InvalidActionTransitionError
-from watch.models import OperationalAction, Target, TargetUpdate, WorkflowRun
+from watch.collectors import WebsiteCollector
+from watch.models import (
+    ObservationSet,
+    OperationalAction,
+    Target,
+    TargetUpdate,
+    WorkflowRun,
+)
 from watch.storage import JsonStore
 from watch.targets import TargetAlreadyExistsError, TargetNotFoundError, TargetService
+from watch.workflow import execute_supplied_observations
+
+
+class Collector(Protocol):
+    def collect(self, target: Target) -> ObservationSet: ...
 
 
 class ResolutionRequest(BaseModel):
     resolution_note: str = Field(min_length=1, max_length=2000)
 
 
-def create_app(workspace: Path) -> FastAPI:
+class ExecutionResponse(BaseModel):
+    run: WorkflowRun
+    actions: list[OperationalAction]
+
+
+def create_app(workspace: Path, collector: Collector | None = None) -> FastAPI:
     store = JsonStore(workspace)
     actions = ActionService(store)
     targets = TargetService(store)
+    website_collector: Collector = collector or WebsiteCollector()
     app = FastAPI(
         title="WATCH Operator API",
-        version="0.5.0",
-        description="Local operator access to WATCH targets, evidence, and action state.",
+        version="0.6.0",
+        description="Local operator access to WATCH targets, execution, evidence, and actions.",
     )
 
     @app.get("/api/health")
@@ -59,6 +78,26 @@ def create_app(workspace: Path) -> FastAPI:
             return targets.update(target_id, request)
         except TargetNotFoundError as exc:
             raise HTTPException(status_code=404, detail="target not found") from exc
+
+    @app.post(
+        "/api/targets/{target_id}/runs",
+        response_model=ExecutionResponse,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def execute_target(target_id: str) -> ExecutionResponse:
+        try:
+            target = targets.get(target_id)
+        except TargetNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="target not found") from exc
+        if not target.enabled:
+            raise HTTPException(status_code=409, detail="target is disabled")
+        observations = website_collector.collect(target)
+        run, run_actions, _ = execute_supplied_observations(
+            target=target,
+            observations=observations,
+            workspace=workspace,
+        )
+        return ExecutionResponse(run=run, actions=run_actions)
 
     @app.get("/api/runs", response_model=list[WorkflowRun])
     def list_runs() -> list[WorkflowRun]:
