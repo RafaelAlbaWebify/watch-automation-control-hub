@@ -39,6 +39,8 @@ def test_select_response_headers_truncates_persisted_values() -> None:
 
 
 def test_collector_records_content_metadata_without_sensitive_headers() -> None:
+    content = b"<html><head><title>Evidence Demo</title></head></html>"
+
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
@@ -49,7 +51,7 @@ def test_collector_records_content_metadata_without_sensitive_headers() -> None:
                 "server": "demo-server",
                 "set-cookie": "session=secret",
             },
-            content=b"<html><head><title>Evidence Demo</title></head></html>",
+            content=content,
         )
 
     target = Target(
@@ -65,7 +67,7 @@ def test_collector_records_content_metadata_without_sensitive_headers() -> None:
         ).collect(target)
 
     assert result.content_type == "text/html; charset=utf-8"
-    assert result.content_length_bytes == 59
+    assert result.content_length_bytes == len(content)
     assert result.page_title == "Evidence Demo"
     assert result.response_headers == {
         "cache-control": "public, max-age=60",
