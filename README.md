@@ -18,6 +18,7 @@ local target inventory
   -> deterministic due-occurrence calculation
   -> read-only latest-due work planning
   -> bounded one-shot latest-due execution
+  -> rollback-safe Windows Task Scheduler adapter
   -> atomic idempotent claims
   -> explicit at-most-once occurrence execution
   -> missed-boundary and stale-execution visibility
@@ -29,13 +30,11 @@ local target inventory
   -> deterministic findings and previous-run comparison
   -> action creation, acknowledgement, and resolution
   -> immutable run history and reports
-  -> local operator API
-  -> read-only operator workbench
-  -> target-focused evidence drill-down
+  -> local operator API and read-only workbench
   -> Playwright browser and screenshot proof
 ```
 
-Collected evidence includes HTTP status, final URL, redirects, response duration, resolved IP addresses, page title, TLS days remaining, and structured DNS, HTTP, timeout, and TLS errors.
+Collected evidence includes HTTP status, final URL, redirects, response duration, resolved IP addresses, page title, TLS days remaining, selected public response metadata, and structured DNS, HTTP, timeout, and TLS errors.
 
 For every HTTP redirect hop, WATCH validates the hostname, connects directly to a selected public IP, and preserves the original hostname for the Host header and TLS SNI/certificate verification.
 
@@ -48,7 +47,7 @@ For every HTTP redirect hop, WATCH validates the hostname, connects directly to 
 .\WATCH.ps1 export
 ```
 
-The export command verifies the repository, runs the deterministic demo, and creates a review ZIP in `Downloads`.
+The export command verifies the repository, runs the deterministic demo, generates a scheduler plan, and creates a review ZIP in `Downloads`.
 
 ## Run a live read-only check
 
@@ -66,23 +65,13 @@ Optional parameters:
 
 ## Plan latest due work without changing state
 
-Windows wrapper:
-
 ```powershell
 .\WATCH.ps1 plan `
   -EvaluatedAt "2026-07-14T20:00:00+02:00" `
   -Workspace ".watch-data"
 ```
 
-Direct CLI:
-
-```powershell
-.\.venv\Scripts\python.exe -m watch.cli plan-due `
-  --evaluated-at 2026-07-14T20:00:00+02:00 `
-  --workspace .watch-data
-```
-
-The command emits machine-readable JSON. It considers at most one latest due boundary per schedule and classifies it without creating a claim or invoking the collector. The Windows wrapper also saves timestamped evidence under `artifacts/runner` unless `-OutputPath` is supplied.
+The command emits machine-readable JSON. It considers at most one latest due boundary per schedule and classifies it without creating a claim or invoking the collector.
 
 ## Run one bounded foreground due cycle
 
@@ -93,14 +82,73 @@ The command emits machine-readable JSON. It considers at most one latest due bou
   -Workspace ".watch-data"
 ```
 
-The command processes only `ready-to-claim` latest boundaries in deterministic schedule order. `MaxWork` is required to remain between 1 and 10. It runs once, writes a JSON result summary, and exits. It does not retry, loop, run in the background, or install a scheduled task.
+The command processes only `ready-to-claim` latest boundaries in deterministic schedule order. `MaxWork` remains between 1 and 10. It runs once, writes a JSON result summary, and exits.
 
-Generated evidence is stored under `.watch-data`:
+## Windows Task Scheduler lifecycle
+
+WATCH installs at most one current-user scheduled task. Each trigger invokes one bounded foreground run and exits.
+
+### Inspect the definition
+
+```powershell
+.\WATCH.ps1 task-plan `
+  -TaskName "WATCH-DueRunner" `
+  -IntervalMinutes 15 `
+  -MaxWork 1 `
+  -Workspace ".watch-data" `
+  -EvidenceDirectory "artifacts\runner" `
+  -OutputPath "artifacts\scheduler-proof\task-plan.json"
+```
+
+`task-plan` is read-only and shows the exact executable, quoted arguments, paths, principal, interval, non-overlap policy, and credential policy.
+
+### Install
+
+```powershell
+.\WATCH.ps1 task-install `
+  -TaskName "WATCH-DueRunner" `
+  -IntervalMinutes 15 `
+  -MaxWork 1 `
+  -Workspace ".watch-data" `
+  -EvidenceDirectory "artifacts\runner"
+```
+
+The task runs as the current interactive user with limited privilege, stores no password, and uses `IgnoreNew` to prevent overlap. If a same-named task exists, WATCH exports its XML before replacement.
+
+### Verify
+
+```powershell
+.\WATCH.ps1 task-verify `
+  -TaskName "WATCH-DueRunner" `
+  -IntervalMinutes 15 `
+  -MaxWork 1 `
+  -Workspace ".watch-data" `
+  -EvidenceDirectory "artifacts\runner"
+```
+
+### Uninstall or roll back
+
+```powershell
+.\WATCH.ps1 task-uninstall -TaskName "WATCH-DueRunner"
+```
+
+```powershell
+.\WATCH.ps1 task-rollback -TaskName "WATCH-DueRunner"
+```
+
+Uninstall preserves WATCH operational data and scheduler backup evidence. Rollback restores a previous same-named task only when installation created a valid XML backup.
+
+Scheduled invocations generate the evaluation timestamp at runtime in UTC and save result files under `artifacts\runner`. See [docs/windows-task-scheduler.md](docs/windows-task-scheduler.md) for the full operating procedure.
+
+## Local state
 
 ```text
 .watch-data/
 ├── targets/
 ├── schedules/
+├── scheduler/
+│   ├── task-state.json
+│   └── backups/
 ├── occurrences/
 ├── occurrence-locks/
 ├── attempts/
@@ -116,7 +164,7 @@ Generated evidence is stored under `.watch-data`:
 .\WATCH.ps1 api
 ```
 
-The command starts the combined read-only workbench and existing JSON API on loopback.
+The command starts the combined read-only workbench and JSON API on loopback.
 
 Operator pages:
 
@@ -130,39 +178,20 @@ Operator pages:
 - run history: `http://127.0.0.1:8000/runs`
 - change timeline: `http://127.0.0.1:8000/changes`
 - action history: `http://127.0.0.1:8000/actions`
-- human-readable report: `http://127.0.0.1:8000/reports/{run_id}`
+- report: `http://127.0.0.1:8000/reports/{run_id}`
 
-Every operator page uses the same navigation. Target links from the dashboard, schedules, occurrences, attention, runs, changes, and actions open a consolidated target page showing configuration, schedules, run/change history, findings, resulting actions, and report links. The Attempts page provides read-only evidence for each operator-controlled retry, including its reason, status, timestamps, run link, and error.
+Default API endpoints include health, targets, schedules, occurrences, attempts, due-work planning, runs, actions, and reports. The API and workbench use one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. HTML pages are read-only and excluded from OpenAPI.
 
-Default API endpoints:
+## Scheduling and execution safety
 
-- health: `http://127.0.0.1:8000/api/health`
-- OpenAPI: `http://127.0.0.1:8000/docs`
-- targets: `http://127.0.0.1:8000/api/targets`
-- schedules: `http://127.0.0.1:8000/api/schedules`
-- occurrences: `http://127.0.0.1:8000/api/occurrences`
-- attempts: `http://127.0.0.1:8000/api/attempts`
-- due-work plan: `http://127.0.0.1:8000/api/runner/plan`
-- runs: `http://127.0.0.1:8000/api/runs`
-- actions: `http://127.0.0.1:8000/api/actions`
-
-The API and workbench use one startup-configured local workspace. Request parameters cannot select arbitrary filesystem paths. HTML pages are read-only and excluded from the OpenAPI contract.
-
-## Scheduling, occurrence, retry, planning, and runner safety
-
-Schedule definitions link one immutable schedule ID to one target, normalize starts to UTC, and bound intervals from 5 minutes to 7 days.
-
-Occurrence evaluation derives deterministic UTC boundaries and execution keys. Exclusive local files provide restart-safe claims and permanent at-most-once execution markers. Disabled schedules and targets are rejected before collection.
-
-Attention inspection is read-only. It reports `missed-unclaimed` boundaries and `executing-stale` occurrences using bounded grace and lookback values. It creates no claims, invokes no collector, changes no state, and performs no recovery.
-
-Retries are explicit operator actions against terminal `failed` occurrences only. Each request must include a non-blank reason, and WATCH stores that reason on a separate attempt record before collection. Attempts are numbered independently from 1 to 3. The original occurrence remains byte-for-byte unchanged after a completed, partial, or failed retry. Stale `executing` occurrences are never retried because the original process may still be active.
-
-The Attempts workbench page is visibility-only. It escapes stored reason and error text, links run-backed attempts to their reports, and exposes no retry, edit, delete, or state-transition control.
-
-Due-work planning is also visibility-only. The caller supplies one timezone-aware timestamp, WATCH normalizes it to UTC, reuses the existing occurrence-boundary and execution-key logic, and classifies the latest boundary for each schedule. Planning creates no claim, execution marker, retry attempt, run, action, or report and invokes no collector.
-
-The one-shot runner consumes only `ready-to-claim` plan items, enforces a caller-supplied 1–10 maximum, uses the existing atomic claim and permanent execution-marker services, returns completed/partial/failed evidence, and exits after one foreground invocation. Repeating the same boundary does not recollect finished work.
+- Schedule starts are normalized to UTC and intervals are bounded from 5 minutes to 7 days.
+- Planning is read-only and invokes no collector.
+- The one-shot runner processes only `ready-to-claim` items and enforces `MaxWork` from 1 to 10.
+- Atomic claims and permanent execution markers prevent duplicate collection.
+- Retries require a reason, are limited to three attempts, and never rewrite the original occurrence.
+- The scheduled task uses the current interactive user, limited privilege, no stored credential, a 5–1,440 minute interval, and `IgnoreNew` overlap prevention.
+- One trigger invokes one foreground process and exits.
+- CI validates the scheduler manifest but deliberately leaves no persistent task on the hosted runner.
 
 ## Automated proof
 
@@ -173,22 +202,17 @@ Every pull request runs:
 - pytest with coverage;
 - deterministic demo generation;
 - FastAPI and OpenAPI contract tests;
-- read-only route, navigation, not-found, target-detail, attempt-history, due-planning, and one-shot-runner tests;
-- Playwright Chromium semantic navigation;
-- browser console-error validation;
-- screenshots for dashboard, target detail, schedules, occurrences, attention, attempts, runs, changes, actions, and reports;
-- Windows wrapper proof for `plan` and `run-once` against an empty no-network workspace;
-- Playwright trace retention on browser failure;
-- Windows operator verification and review ZIP export;
+- planner, runner, retry, route, and workbench tests;
+- Windows wrapper and scheduler-manifest proof;
+- Windows review ZIP export including `artifacts/scheduler-proof/task-plan.json`;
+- Playwright Chromium semantic navigation and screenshots;
 - Linux, Windows, and visual proof-artifact upload.
 
 ## Safety boundaries
 
-WATCH is read-only first. Current controls include explicit target registration, bounded timeouts and redirects, public-address validation, direct connections to validated IP addresses, normal TLS verification, disabled-target guards, startup-configured workspace isolation, local-only action transitions, read-only operator pages, byte-for-byte read-only due planning, a bounded one-shot foreground runner, and a maximum of three reasoned retry attempts for failed occurrences.
+WATCH is read-only first. It does not bypass authentication, submit external forms, crawl sites, store credentials, automatically retry or recover interrupted execution, retry stale executing work, create one scheduled task per target, run as SYSTEM, install a password-backed task, or modify external systems.
 
-WATCH does not bypass authentication, submit external forms, crawl sites, store credentials, automatically retry or recover interrupted execution, retry stale executing work, install Task Scheduler jobs, run a background loop, or modify external systems.
-
-See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md](docs/roadmap.md).
+See [docs/safety-boundaries.md](docs/safety-boundaries.md), [docs/windows-task-scheduler.md](docs/windows-task-scheduler.md), and [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
@@ -196,12 +220,12 @@ See [docs/safety-boundaries.md](docs/safety-boundaries.md) and [docs/roadmap.md]
 src/watch/           domain, services, collectors, storage, reports, CLI, API, and workbench
 tests/               unit, API, route, navigation, planner, runner, and operator proof
 samples/             public-safe sample inputs
-scripts/             setup, verification, demo, runner wrappers, browser proof, launch, and review export
-docs/                architecture, roadmap, safety, and milestone evidence
+scripts/             setup, verification, scheduler, runner, browser proof, launch, and review export
+docs/                architecture, roadmap, safety, scheduler, and milestone evidence
 .github/workflows/   Linux, Windows, and browser verification
 .watch-data/         generated local state, ignored by Git
 ```
 
 ## Next milestone
 
-The next decision is whether to design a rollback-safe Windows Task Scheduler adapter around the proven one-shot command. No scheduled task should be installed until its task definition, dry-run, verification, uninstall, and failure behavior are specified and tested.
+The original M0–M4 implementation roadmap is complete except for an explicitly approved sanitized live-run example. The project now moves into a V1 readiness review: real-workstation scheduler validation, clean-checkout installation testing, final portfolio evidence, and first stable release tagging.
