@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+from importlib.metadata import version as package_version
 from pathlib import Path
-import tomllib
 
 from playwright.sync_api import ConsoleMessage, Page, sync_playwright
 
@@ -77,8 +77,7 @@ def _portfolio_review(root: Path, screenshots: Path) -> dict[str, object]:
     if missing_claims:
         raise AssertionError(f"README portfolio claims missing: {missing_claims}")
 
-    with (root / "pyproject.toml").open("rb") as file:
-        version = tomllib.load(file)["project"]["version"]
+    version = package_version("watch-automation-control-hub")
 
     for image in SELECTED_PORTFOLIO_SCREENSHOTS:
         if not (screenshots / image).is_file():
