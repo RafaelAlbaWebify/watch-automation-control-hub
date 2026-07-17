@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   verify-published-release:
@@ -31,3 +32,10 @@ jobs:
           path: artifacts/release-verification
           if-no-files-found: error
           retention-days: 30
+      - name: Close publication issue after verified download
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue close 65 --comment \
+            "Verified published WATCH v0.1.0: release is public, stable, includes WATCH-v0.1.0-windows.zip, and the asset downloaded successfully with a recorded SHA-256."
