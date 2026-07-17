@@ -28,6 +28,27 @@ if (-not (Test-Path $SchedulerPlan)) {
     throw "Scheduler proof plan was not created."
 }
 
+$ReadinessProof = Join-Path $Root "artifacts\readiness"
+$ReadinessJson = Join-Path $ReadinessProof "v1-readiness.json"
+$ReadinessMarkdown = Join-Path $ReadinessProof "v1-readiness.md"
+New-Item -ItemType Directory -Path $ReadinessProof -Force | Out-Null
+$Python = Join-Path $Root ".venv\Scripts\python.exe"
+if (-not (Test-Path $Python)) {
+    $PythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $PythonCommand) {
+        throw "Python was not found. Run .\WATCH.ps1 setup first."
+    }
+    $Python = $PythonCommand.Source
+}
+& $Python (Join-Path $Root "scripts\build-readiness-report.py") `
+    --root $Root `
+    --json-out $ReadinessJson `
+    --markdown-out $ReadinessMarkdown | Out-Null
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if (-not (Test-Path $ReadinessJson) -or -not (Test-Path $ReadinessMarkdown)) {
+    throw "V1 readiness evidence was not created."
+}
+
 $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $Downloads = Join-Path $HOME "Downloads"
 if (-not (Test-Path $Downloads)) { $Downloads = $Root }
@@ -48,7 +69,8 @@ $Include = @(
     "docs",
     ".github",
     ".watch-data",
-    "artifacts\scheduler-proof"
+    "artifacts\scheduler-proof",
+    "artifacts\readiness"
 )
 foreach ($Item in $Include) {
     $Source = Join-Path $Root $Item
@@ -63,6 +85,8 @@ $Verification = if ($SkipVerification) { "PREVERIFIED" } else { "PASS" }
     source_root = $Root
     scheduler_plan = "artifacts/scheduler-proof/task-plan.json"
     scheduler_install_performed = $false
+    readiness_json = "artifacts/readiness/v1-readiness.json"
+    readiness_markdown = "artifacts/readiness/v1-readiness.md"
 } | ConvertTo-Json | Set-Content (Join-Path $Stage "manifest.json") -Encoding UTF8
 
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $Zip -Force
