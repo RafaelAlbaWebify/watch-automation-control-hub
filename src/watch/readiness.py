@@ -144,7 +144,13 @@ def render_readiness_markdown(report: ReadinessReport) -> str:
             "",
             "## Interpretation",
             "",
-            "Automated readiness confirms repository structure, command exposure, version metadata, and completed implementation roadmap items. Manual blockers require an approved live target, the intended Windows workstation, human review, or a release decision and are never marked complete by CI.",
+            (
+                "Automated readiness confirms repository structure, command exposure, "
+                "version metadata, and completed implementation roadmap items. Manual "
+                "blockers require an approved live target, the intended Windows "
+                "workstation, human review, or a release decision and are never marked "
+                "complete by CI."
+            ),
             "",
         ]
     )
