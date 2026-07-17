@@ -7,15 +7,18 @@ DESTINATION="${1:-artifacts/release-verification}"
 
 mkdir -p "$DESTINATION"
 
-release_json="$(gh release view "$TAG" --json tagName,name,isDraft,isPrerelease,assets,url)"
-printf '%s' "$release_json" | python - "$ASSET" "$DESTINATION/release.json" <<'PY'
+export WATCH_RELEASE_JSON="$(
+  gh release view "$TAG" --json tagName,name,isDraft,isPrerelease,assets,url
+)"
+python - "$ASSET" "$DESTINATION/release.json" <<'PY'
 import json
+import os
 import pathlib
 import sys
 
 asset_name = sys.argv[1]
 out_path = pathlib.Path(sys.argv[2])
-payload = json.load(sys.stdin)
+payload = json.loads(os.environ["WATCH_RELEASE_JSON"])
 
 if payload["tagName"] != "v0.1.0":
     raise SystemExit(f"Unexpected release tag: {payload['tagName']}")
@@ -31,6 +34,7 @@ if int(assets[asset_name].get("size", 0)) <= 0:
 
 out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 PY
+unset WATCH_RELEASE_JSON
 
 gh release download "$TAG" --pattern "$ASSET" --dir "$DESTINATION" --clobber
 
