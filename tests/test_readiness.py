@@ -9,7 +9,7 @@ def test_current_repository_is_automatically_ready() -> None:
 
     assert report.automated_ready is True
     assert report.automated_blockers == []
-    assert report.version == "0.3.0"
+    assert report.version == "1.0.0"
     assert report.manual_blockers == ["Tag the first stable release"]
 
     markdown = render_readiness_markdown(report)
