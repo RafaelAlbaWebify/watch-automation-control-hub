@@ -55,6 +55,13 @@ jobs:
       - name: Tests
         run: python -m pytest --junitxml=artifacts/test-results.xml
 
+      - name: V1 readiness audit
+        run: |
+          python scripts/build-readiness-report.py \
+            --root . \
+            --json-out artifacts/v1-readiness.json \
+            --markdown-out artifacts/v1-readiness.md
+
       - name: Demo proof
         run: python -m watch.cli demo --workspace artifacts/demo
 
@@ -181,6 +188,14 @@ jobs:
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
           python -m pytest --junitxml=artifacts\test-results.xml
 
+      - name: V1 readiness audit
+        shell: pwsh
+        run: |
+          python scripts\build-readiness-report.py `
+            --root . `
+            --json-out artifacts\v1-readiness.json `
+            --markdown-out artifacts\v1-readiness.md
+
       - name: Run WATCH demo
         shell: pwsh
         run: .\WATCH.ps1 demo
@@ -214,5 +229,91 @@ jobs:
         with:
           name: watch-windows-proof-${{ github.run_number }}
           path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
+  clean-checkout-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout clean repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Confirm clean operator state
+        shell: pwsh
+        run: |
+          if (Test-Path .venv) { throw "Clean checkout unexpectedly contains .venv." }
+          if (Test-Path .watch-data) { throw "Clean checkout unexpectedly contains .watch-data." }
+          New-Item -ItemType Directory -Path artifacts\clean-checkout -Force | Out-Null
+
+      - name: Run documented setup
+        shell: pwsh
+        run: .\WATCH.ps1 setup
+
+      - name: Run documented verification
+        shell: pwsh
+        run: .\WATCH.ps1 verify
+
+      - name: Run documented demo
+        shell: pwsh
+        run: .\WATCH.ps1 demo
+
+      - name: Exercise no-network operator commands
+        shell: pwsh
+        run: |
+          $Workspace = Join-Path $PWD "artifacts\clean-checkout\empty-workspace"
+          .\WATCH.ps1 plan `
+            -EvaluatedAt "2026-07-14T10:20:00Z" `
+            -Workspace $Workspace `
+            -OutputPath "artifacts\clean-checkout\due-plan.json" | Out-Null
+          .\WATCH.ps1 run-once `
+            -EvaluatedAt "2026-07-14T10:20:00Z" `
+            -MaxWork 1 `
+            -Workspace $Workspace `
+            -OutputPath "artifacts\clean-checkout\due-run.json" | Out-Null
+          .\WATCH.ps1 task-plan `
+            -TaskName "WATCH-Clean-Checkout-Proof" `
+            -IntervalMinutes 30 `
+            -MaxWork 1 `
+            -Workspace $Workspace `
+            -EvidenceDirectory "artifacts\clean-checkout\scheduled-evidence" `
+            -StatePath "artifacts\clean-checkout\scheduler-state.json" `
+            -OutputPath "artifacts\clean-checkout\task-plan.json" | Out-Null
+
+      - name: Build clean-checkout readiness evidence
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe scripts\build-readiness-report.py `
+            --root . `
+            --json-out artifacts\clean-checkout\v1-readiness.json `
+            --markdown-out artifacts\clean-checkout\v1-readiness.md
+          @"
+          # WATCH clean-checkout operator proof
+
+          - Commit: $env:GITHUB_SHA
+          - Setup: PASS
+          - Verify: PASS
+          - Demo: PASS
+          - Plan: PASS
+          - Run once: PASS
+          - Task plan: PASS
+          - Persistent task installed: false
+          - Live network check performed: false
+          "@ | Set-Content artifacts\clean-checkout\summary.md -Encoding UTF8
+
+      - name: Upload clean-checkout proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-clean-checkout-proof-${{ github.run_number }}
+          path: artifacts/clean-checkout/
           if-no-files-found: error
           retention-days: 30
