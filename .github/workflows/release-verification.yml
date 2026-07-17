@@ -1,0 +1,64 @@
+name: WATCH Published Release Verification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/release-verification.yml"
+      - "docs/roadmap.md"
+      - "docs/v1-manual-release-checklist.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-v0-1-0:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify published release and asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v0.1.0 --json tagName,name,isDraft,isPrerelease,assets > release.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("release.json").read_text(encoding="utf-8"))
+          if payload["tagName"] != "v0.1.0":
+              raise SystemExit(f"Unexpected tag: {payload['tagName']}")
+          if payload["name"] != "WATCH v0.1.0":
+              raise SystemExit(f"Unexpected release name: {payload['name']}")
+          if payload["isDraft"]:
+              raise SystemExit("Release is still a draft")
+          if payload["isPrerelease"]:
+              raise SystemExit("Release is marked as a prerelease")
+          assets = {asset["name"]: asset for asset in payload["assets"]}
+          expected = "WATCH-v0.1.0-windows.zip"
+          if expected not in assets:
+              raise SystemExit(f"Missing release asset: {expected}")
+          if assets[expected].get("size", 0) <= 0:
+              raise SystemExit(f"Release asset is empty: {expected}")
+          Path("published-release-verification.json").write_text(
+              json.dumps(
+                  {
+                      "result": "pass",
+                      "tag": payload["tagName"],
+                      "name": payload["name"],
+                      "asset": expected,
+                      "asset_size": assets[expected]["size"],
+                  },
+                  indent=2,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Upload published release proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-v0.1.0-published-release-proof
+          path: published-release-verification.json
+          if-no-files-found: error
+          retention-days: 30
