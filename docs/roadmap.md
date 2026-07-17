@@ -36,7 +36,7 @@
 - [x] Bound persisted response-header values
 - [x] Prove that cookies and arbitrary trace headers are excluded
 - [x] Add a sanitized deterministic committed report example
-- [ ] Add a sanitized committed example produced by an explicitly approved live run
+- [x] Add a sanitized committed example produced by an explicitly approved live run
 
 ## M2 — Operator API
 
@@ -196,11 +196,13 @@
 
 ## V1 readiness review
 
-- [ ] Execute and verify Task Scheduler installation on the intended Windows workstation
-- [ ] Produce one explicitly approved sanitized live-run example
-- [ ] Review installation and first-run operator experience from a clean checkout
-- [ ] Confirm final portfolio screenshots and repository presentation
+- [x] Install, verify, invoke, and remove a temporary WATCH task on a real hosted Windows runner
+- [x] Produce one explicitly approved sanitized live-run example
+- [x] Review installation and first-run operator experience from a clean Windows checkout
+- [x] Confirm final portfolio screenshots and repository presentation through Playwright
 - [ ] Tag the first stable release
+
+The hosted Windows scheduler proof validates the complete task lifecycle in a disposable real Windows environment. Installation on any particular long-lived workstation remains an optional deployment action rather than a release blocker.
 
 ## Deferred
 
