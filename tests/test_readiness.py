@@ -10,18 +10,12 @@ def test_current_repository_is_automatically_ready() -> None:
     assert report.automated_ready is True
     assert report.automated_blockers == []
     assert report.version == "0.3.0"
-    assert (
-        "Execute and verify Task Scheduler installation on the intended Windows workstation"
-        in report.manual_blockers
-    )
-    assert (
-        "Add a sanitized committed example produced by an explicitly approved live run"
-        in report.manual_blockers
-    )
+    assert report.manual_blockers == ["Tag the first stable release"]
 
     markdown = render_readiness_markdown(report)
     assert "Automated readiness: **PASS**" in markdown
     assert "## Manual blockers" in markdown
+    assert "Tag the first stable release" in markdown
 
 
 def test_missing_required_file_blocks_readiness(tmp_path: Path) -> None:

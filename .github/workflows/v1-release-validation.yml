@@ -1,0 +1,202 @@
+name: WATCH V1 Release Validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: watch-v1-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  approved-live-example:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install WATCH
+        run: python -m pip install -e ".[dev]"
+      - name: Run one approved bounded live check
+        run: |
+          mkdir -p artifacts/live/workspace artifacts/live/public
+          python -m watch.cli collect https://example.com \
+            --timeout-seconds 10 \
+            --workspace artifacts/live/workspace
+      - name: Sanitize public live report
+        run: |
+          REPORT=$(find artifacts/live/workspace/reports -name '*.md' -type f | head -n 1)
+          test -n "$REPORT"
+          python scripts/sanitize-live-report.py \
+            --source "$REPORT" \
+            --output artifacts/live/public/example-com-live-report.md
+          ! grep -E 'resolved_ips \| \[[0-9a-fA-F:.]+' artifacts/live/public/example-com-live-report.md
+          grep -F 'https://example.com' artifacts/live/public/example-com-live-report.md
+      - name: Upload approved live evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-approved-live-example-${{ github.run_number }}
+          path: artifacts/live/
+          if-no-files-found: error
+          retention-days: 30
+
+  temporary-scheduler-lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install WATCH
+        shell: pwsh
+        run: .\WATCH.ps1 setup
+      - name: Install and verify temporary scheduled task
+        shell: pwsh
+        run: |
+          $TaskName = "WATCH-V1-${{ github.run_id }}"
+          $Workspace = Join-Path $PWD "artifacts\scheduler-live\workspace"
+          $Evidence = Join-Path $PWD "artifacts\scheduler-live\runner"
+          $State = Join-Path $PWD "artifacts\scheduler-live\task-state.json"
+          New-Item -ItemType Directory -Path "artifacts\scheduler-live" -Force | Out-Null
+          .\WATCH.ps1 task-plan -TaskName $TaskName -IntervalMinutes 30 -MaxWork 1 `
+            -Workspace $Workspace -EvidenceDirectory $Evidence -StatePath $State `
+            -OutputPath "artifacts\scheduler-live\task-plan.json" | Out-Null
+          .\WATCH.ps1 task-install -TaskName $TaskName -IntervalMinutes 30 -MaxWork 1 `
+            -Workspace $Workspace -EvidenceDirectory $Evidence -StatePath $State `
+            -OutputPath "artifacts\scheduler-live\task-install.json" | Out-Null
+          .\WATCH.ps1 task-verify -TaskName $TaskName -IntervalMinutes 30 -MaxWork 1 `
+            -Workspace $Workspace -EvidenceDirectory $Evidence -StatePath $State `
+            -OutputPath "artifacts\scheduler-live\task-verify.json" | Out-Null
+          $Verified = Get-Content -Raw "artifacts\scheduler-live\task-verify.json" | ConvertFrom-Json
+          if (-not $Verified.valid) { throw "WATCH task verification did not pass." }
+          if ($Verified.manifest.multiple_instances -ne "IgnoreNew") { throw "Overlap policy mismatch." }
+          if ($Verified.manifest.run_level -ne "Limited") { throw "Task is not limited privilege." }
+          if ($Verified.manifest.stores_credentials) { throw "Task unexpectedly stores credentials." }
+          Start-ScheduledTask -TaskName $TaskName
+          $Deadline = (Get-Date).AddMinutes(2)
+          do {
+            Start-Sleep -Seconds 2
+            $Results = @(Get-ChildItem $Evidence -Filter "scheduled-run-*.json" -ErrorAction SilentlyContinue)
+          } while ($Results.Count -eq 0 -and (Get-Date) -lt $Deadline)
+          if ($Results.Count -eq 0) { throw "The temporary scheduled invocation produced no JSON evidence." }
+          [ordered]@{
+            result = "pass"
+            task_name = $TaskName
+            installed = $true
+            verified = $true
+            invoked = $true
+            result_file = $Results[0].FullName
+            run_level = $Verified.manifest.run_level
+            logon_type = $Verified.manifest.principal_logon_type
+            multiple_instances = $Verified.manifest.multiple_instances
+            stores_credentials = $Verified.manifest.stores_credentials
+          } | ConvertTo-Json | Set-Content "artifacts\scheduler-live\human-review.json" -Encoding utf8
+      - name: Uninstall temporary task
+        if: always()
+        shell: pwsh
+        run: |
+          $TaskName = "WATCH-V1-${{ github.run_id }}"
+          $State = Join-Path $PWD "artifacts\scheduler-live\task-state.json"
+          .\WATCH.ps1 task-uninstall -TaskName $TaskName -StatePath $State `
+            -OutputPath "artifacts\scheduler-live\task-uninstall.json" | Out-Null
+          if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
+            throw "Temporary scheduled task still exists after uninstall."
+          }
+          "removed" | Set-Content "artifacts\scheduler-live\cleanup-status.txt"
+      - name: Upload scheduler lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-temporary-scheduler-${{ github.run_number }}
+          path: artifacts/scheduler-live/
+          if-no-files-found: error
+          retention-days: 30
+
+  playwright-human-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install WATCH and Chromium
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m playwright install --with-deps chromium
+      - name: Prepare portfolio workspace
+        run: |
+          mkdir -p artifacts/human-review
+          python scripts/prepare-ui-demo.py --workspace artifacts/human-review/workspace
+      - name: Start workbench
+        env:
+          WATCH_WORKSPACE: ${{ github.workspace }}/artifacts/human-review/workspace
+        run: |
+          python -m uvicorn watch.webapp:app --host 127.0.0.1 --port 8000 > artifacts/human-review/server.log 2>&1 &
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:8000/api/health > /dev/null && exit 0
+            sleep 1
+          done
+          cat artifacts/human-review/server.log
+          exit 1
+      - name: Review like a human with Playwright
+        run: |
+          python scripts/verify-v1-human-review.py \
+            --base-url http://127.0.0.1:8000 \
+            --artifacts artifacts/human-review
+      - name: Upload human-review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-playwright-human-review-${{ github.run_number }}
+          path: artifacts/human-review/
+          if-no-files-found: error
+          retention-days: 30
+
+  automated-release-gate:
+    needs: [approved-live-example, temporary-scheduler-lifecycle, playwright-human-review]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Build release gate summary
+        env:
+          LIVE_RESULT: ${{ needs.approved-live-example.result }}
+          SCHEDULER_RESULT: ${{ needs.temporary-scheduler-lifecycle.result }}
+          HUMAN_RESULT: ${{ needs.playwright-human-review.result }}
+        run: |
+          mkdir -p artifacts/release-gate
+          python - <<'PY'
+          import json, os, pathlib
+          results = {
+              "approved_live_example": os.environ["LIVE_RESULT"],
+              "temporary_scheduler_lifecycle": os.environ["SCHEDULER_RESULT"],
+              "playwright_human_review": os.environ["HUMAN_RESULT"],
+          }
+          passed = all(value == "success" for value in results.values())
+          payload = {
+              "result": "pass" if passed else "blocked",
+              "automated_human_like_validation": results,
+              "stable_tag_created": False,
+              "tag_decision_required": True,
+          }
+          pathlib.Path("artifacts/release-gate/v1-release-gate.json").write_text(
+              json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+          )
+          if not passed:
+              raise SystemExit(1)
+          PY
+      - name: Upload release-gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-v1-release-gate-${{ github.run_number }}
+          path: artifacts/release-gate/
+          if-no-files-found: error
+          retention-days: 30
