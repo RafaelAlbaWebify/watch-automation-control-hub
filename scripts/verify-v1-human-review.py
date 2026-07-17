@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import tomllib
 from pathlib import Path
 
 from playwright.sync_api import ConsoleMessage, Page, sync_playwright
@@ -17,6 +18,13 @@ PAGES = [
     ("runs", "/runs", "Immutable workflow run history"),
     ("changes", "/changes", "Change timeline"),
     ("actions", "/actions", "Operational action history"),
+]
+
+SELECTED_PORTFOLIO_SCREENSHOTS = [
+    "desktop-dashboard.png",
+    "desktop-targets.png",
+    "desktop-changes.png",
+    "desktop-actions.png",
 ]
 
 
@@ -55,12 +63,49 @@ def _review_viewport(
     return results
 
 
+def _portfolio_review(root: Path, screenshots: Path) -> dict[str, object]:
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    required_claims = [
+        "Workflow Automation & Technical Control Hub",
+        "Current verified capability",
+        "Quick start on Windows",
+        "Windows Task Scheduler lifecycle",
+        "Scheduling and execution safety",
+        "Automated proof",
+    ]
+    missing_claims = [claim for claim in required_claims if claim not in readme]
+    if missing_claims:
+        raise AssertionError(f"README portfolio claims missing: {missing_claims}")
+
+    with (root / "pyproject.toml").open("rb") as file:
+        version = tomllib.load(file)["project"]["version"]
+
+    for image in SELECTED_PORTFOLIO_SCREENSHOTS:
+        if not (screenshots / image).is_file():
+            raise AssertionError(f"Selected portfolio screenshot is missing: {image}")
+
+    return {
+        "result": "pass",
+        "project_version": version,
+        "readme_claims_checked": required_claims,
+        "missing_readme_claims": missing_claims,
+        "selected_screenshots": SELECTED_PORTFOLIO_SCREENSHOTS,
+        "selection_reason": {
+            "desktop-dashboard.png": "overall operational summary",
+            "desktop-targets.png": "managed target inventory",
+            "desktop-changes.png": "change detection and evidence chronology",
+            "desktop-actions.png": "actionable operational outcomes",
+        },
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a human-like WATCH V1 browser review.")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--artifacts", type=Path, required=True)
     args = parser.parse_args()
 
+    root = Path.cwd().resolve()
     artifacts = args.artifacts.resolve()
     screenshots = artifacts / "human-review-screenshots"
     screenshots.mkdir(parents=True, exist_ok=True)
@@ -100,6 +145,7 @@ def main() -> None:
     if console_errors:
         raise AssertionError("Browser console errors:\n" + "\n".join(console_errors))
 
+    portfolio = _portfolio_review(root, screenshots)
     report = {
         "result": "pass",
         "review_style": "playwright-human-like",
@@ -107,11 +153,15 @@ def main() -> None:
         "mobile_pages_reviewed": len(mobile_results),
         "keyboard_skip_link": "pass",
         "console_errors": console_errors,
+        "portfolio_review": portfolio,
         "desktop": desktop_results,
         "mobile": mobile_results,
     }
     (artifacts / "v1-human-review.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
+    (artifacts / "portfolio-review.json").write_text(
+        json.dumps(portfolio, indent=2) + "\n", encoding="utf-8"
     )
     (artifacts / "v1-human-review.md").write_text(
         "# WATCH V1 Playwright human review\n\n"
@@ -120,7 +170,9 @@ def main() -> None:
         f"- Mobile pages reviewed: **{len(mobile_results)}**\n"
         "- Keyboard skip-link workflow: **PASS**\n"
         "- Browser console errors: **0**\n"
-        "- Screenshots: desktop and mobile evidence retained.\n",
+        f"- Project version reviewed: **{portfolio['project_version']}**\n"
+        "- README portfolio claims: **PASS**\n"
+        "- Final screenshot shortlist: dashboard, targets, changes, actions.\n",
         encoding="utf-8",
     )
 
