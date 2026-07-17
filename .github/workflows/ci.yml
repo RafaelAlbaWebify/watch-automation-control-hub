@@ -79,7 +79,7 @@ jobs:
 
       - name: Upload Linux proof artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: watch-linux-proof-${{ github.run_number }}
           path: artifacts/
@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload visual proof artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: watch-visual-proof-${{ github.run_number }}
           path: artifacts/ui/
@@ -225,7 +225,7 @@ jobs:
 
       - name: Upload Windows proof artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: watch-windows-proof-${{ github.run_number }}
           path: artifacts/
@@ -311,7 +311,7 @@ jobs:
 
       - name: Upload clean-checkout proof
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: watch-clean-checkout-proof-${{ github.run_number }}
           path: artifacts/clean-checkout/
