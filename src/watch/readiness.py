@@ -35,6 +35,7 @@ REQUIRED_FILES = (
     "docs/roadmap.md",
     "docs/safety-boundaries.md",
     "docs/windows-task-scheduler.md",
+    "docs/v1-readiness.md",
     ".github/workflows/ci.yml",
 )
 
