@@ -5,6 +5,11 @@ on:
     paths:
       - "scripts/verify-release.sh"
       - ".github/workflows/release-verification.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/verify-release.sh"
+      - ".github/workflows/release-verification.yml"
   workflow_dispatch:
 
 permissions:
