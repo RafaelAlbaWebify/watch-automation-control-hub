@@ -1,0 +1,110 @@
+name: WATCH Release Publisher
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "pyproject.toml"
+      - "docs/releases/v0.1.0.md"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release.yml"
+      - "pyproject.toml"
+      - "docs/releases/v0.1.0.md"
+  workflow_dispatch:
+
+concurrency:
+  group: watch-release-v0.1.0
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate release metadata
+        run: |
+          python - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path(".")
+          with (root / "pyproject.toml").open("rb") as file:
+              version = tomllib.load(file)["project"]["version"]
+          if version != "0.1.0":
+              raise SystemExit(f"Expected release version 0.1.0, found {version}")
+          notes = root / "docs/releases/v0.1.0.md"
+          if not notes.is_file():
+              raise SystemExit("Missing docs/releases/v0.1.0.md")
+          text = notes.read_text(encoding="utf-8")
+          if "WATCH v0.1.0" not in text:
+              raise SystemExit("Release notes do not identify WATCH v0.1.0")
+          PY
+
+  build-windows-package:
+    needs: validate-release
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up WATCH
+        shell: pwsh
+        run: .\WATCH.ps1 setup
+      - name: Generate deterministic review evidence
+        shell: pwsh
+        run: .\WATCH.ps1 demo
+      - name: Build Windows review package
+        shell: pwsh
+        run: |
+          .\scripts\export-review.ps1 -SkipVerification
+          $Source = Get-ChildItem "$HOME\Downloads\WATCH_REVIEW_*.zip" |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+          if (-not $Source) { throw "WATCH review ZIP was not created." }
+          New-Item -ItemType Directory -Path artifacts\release -Force | Out-Null
+          Copy-Item $Source.FullName artifacts\release\WATCH-v0.1.0-windows.zip -Force
+      - name: Upload release package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-v0.1.0-windows-package
+          path: artifacts/release/WATCH-v0.1.0-windows.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-release:
+    needs: build-windows-package
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: watch-v0.1.0-windows-package
+          path: artifacts/release
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.1.0"
+          TITLE="WATCH v0.1.0"
+          NOTES="docs/releases/v0.1.0.md"
+          ASSET="artifacts/release/WATCH-v0.1.0-windows.zip"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES"
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$NOTES"
+          fi
+          gh release upload "$TAG" "$ASSET" --clobber
