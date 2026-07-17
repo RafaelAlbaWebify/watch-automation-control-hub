@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from playwright.sync_api import ConsoleMessage, Page, sync_playwright
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
 
 
 PAGES = [
@@ -95,6 +97,8 @@ def _portfolio_review(root: Path, screenshots: Path) -> dict[str, object]:
 
 
 def main() -> None:
+    from playwright.sync_api import ConsoleMessage, sync_playwright
+
     parser = argparse.ArgumentParser(description="Run a human-like WATCH V1 browser review.")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--artifacts", type=Path, required=True)
@@ -141,7 +145,7 @@ def main() -> None:
         raise AssertionError("Browser console errors:\n" + "\n".join(console_errors))
 
     portfolio = _portfolio_review(root, screenshots)
-    report = {
+    report: dict[str, Any] = {
         "result": "pass",
         "review_style": "playwright-human-like",
         "desktop_pages_reviewed": len(desktop_results),
