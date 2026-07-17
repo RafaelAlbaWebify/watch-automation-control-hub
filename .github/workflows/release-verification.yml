@@ -1,0 +1,28 @@
+name: WATCH Published Release Verification
+
+on:
+  pull_request:
+    paths:
+      - "scripts/verify-release.sh"
+      - ".github/workflows/release-verification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-published-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify published v0.1.0 release and asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/verify-release.sh
+      - name: Upload release verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-v0.1.0-published-release-verification
+          path: artifacts/release-verification
+          if-no-files-found: error
+          retention-days: 30
