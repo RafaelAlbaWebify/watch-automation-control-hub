@@ -111,10 +111,15 @@
 - [x] Machine-readable foreground CLI command
 - [x] Windows dry-run and one-shot wrapper commands
 - [x] Empty-workspace wrapper verification and JSON evidence
-- [ ] One due-runner scheduled task
-- [ ] Installation and uninstall workflow
-- [ ] Rollback-safe local configuration
-- [ ] Scheduled proof package
+- [x] One current-user due-runner scheduled-task definition
+- [x] Runtime UTC timestamp adapter
+- [x] Dry-run task manifest
+- [x] Install, verify, uninstall, and rollback commands
+- [x] Existing-task XML backup before replacement
+- [x] Limited privilege, no stored credentials, and non-overlap policy
+- [x] Rollback-safe local scheduler state
+- [x] Scheduler plan included in the review ZIP
+- [x] Windows CI scheduler-manifest proof without persistent installation
 
 ## M4 — Operator interface
 
@@ -188,6 +193,14 @@
 - [x] Report links for run-backed attempts
 - [x] Empty-state and OpenAPI-exclusion proof
 - [x] Playwright semantic proof and attempt screenshot
+
+## V1 readiness review
+
+- [ ] Execute and verify Task Scheduler installation on the intended Windows workstation
+- [ ] Produce one explicitly approved sanitized live-run example
+- [ ] Review installation and first-run operator experience from a clean checkout
+- [ ] Confirm final portfolio screenshots and repository presentation
+- [ ] Tag the first stable release
 
 ## Deferred
 

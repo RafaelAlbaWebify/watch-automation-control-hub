@@ -1,6 +1,19 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("setup", "verify", "demo", "export", "api", "plan", "run-once")]
+    [ValidateSet(
+        "setup",
+        "verify",
+        "demo",
+        "export",
+        "api",
+        "plan",
+        "run-once",
+        "task-plan",
+        "task-install",
+        "task-verify",
+        "task-uninstall",
+        "task-rollback"
+    )]
     [string]$Command = "verify",
 
     [string]$EvaluatedAt,
@@ -10,11 +23,33 @@ param(
 
     [string]$Workspace,
 
-    [string]$OutputPath
+    [string]$OutputPath,
+
+    [string]$TaskName = "WATCH-DueRunner",
+
+    [ValidateRange(5, 1440)]
+    [int]$IntervalMinutes = 15,
+
+    [string]$EvidenceDirectory,
+
+    [string]$StatePath
 )
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+function Invoke-TaskSchedulerAction {
+    param([Parameter(Mandatory = $true)][string]$Action)
+    & (Join-Path $Root "scripts\task-scheduler.ps1") `
+        -Action $Action `
+        -TaskName $TaskName `
+        -IntervalMinutes $IntervalMinutes `
+        -MaxWork $MaxWork `
+        -Workspace $Workspace `
+        -EvidenceDirectory $EvidenceDirectory `
+        -StatePath $StatePath `
+        -OutputPath $OutputPath
+}
 
 switch ($Command) {
     "setup"  { & (Join-Path $Root "scripts\setup.ps1") }
@@ -41,6 +76,11 @@ switch ($Command) {
             -Workspace $Workspace `
             -OutputPath $OutputPath
     }
+    "task-plan" { Invoke-TaskSchedulerAction -Action "plan" }
+    "task-install" { Invoke-TaskSchedulerAction -Action "install" }
+    "task-verify" { Invoke-TaskSchedulerAction -Action "verify" }
+    "task-uninstall" { Invoke-TaskSchedulerAction -Action "uninstall" }
+    "task-rollback" { Invoke-TaskSchedulerAction -Action "rollback" }
 }
 
 if ($LASTEXITCODE -ne 0) {

@@ -13,8 +13,9 @@ WATCH is read-only first.
 - retry a terminal failed occurrence only through an explicit operator request with a recorded reason;
 - plan the latest due boundary for each schedule without creating claims or executing work;
 - execute a bounded set of latest-due items through one explicit foreground invocation;
-- produce local reports;
-- run future approved public checks at low volume with explicit timeouts.
+- install one approved current-user Windows scheduled task that invokes the bounded one-shot runner and exits;
+- produce local reports and scheduler proof manifests;
+- run approved public checks at low volume with explicit timeouts.
 
 ## Retry boundary
 
@@ -50,7 +51,24 @@ WATCH is read-only first.
 - completed, partial, and failed results are reported separately with optional run linkage;
 - repeated invocation at the same boundary does not recollect finished work;
 - the command runs once in the foreground and then exits;
-- no catch-up scan, retry, concurrency, timer, loop, background service, or Task Scheduler modification is permitted.
+- no catch-up scan, retry, concurrency, timer, loop, or background service is permitted.
+
+## Windows Task Scheduler boundary
+
+- one task invokes one foreground one-shot runner and exits;
+- the task runs as the current interactive user with limited privilege;
+- WATCH stores no password, token, or scheduler credential;
+- the interval is explicitly bounded from 5 to 1,440 minutes;
+- scheduled `MaxWork` remains explicitly bounded from 1 to 10;
+- the runtime adapter generates the current evaluation timestamp in UTC;
+- overlapping task instances are blocked with `IgnoreNew`;
+- the task execution limit is 30 minutes;
+- an existing same-named task is exported to XML before replacement;
+- install state and backup location are retained locally;
+- uninstall preserves WATCH operational data and scheduler backup evidence;
+- rollback restores a previous task only when a valid backup exists;
+- CI proves the dry-run manifest but leaves no persistent scheduled task behind;
+- actual install, verify, uninstall, and rollback are explicit workstation operator actions.
 
 ## Not allowed without explicit design and approval
 
@@ -63,7 +81,8 @@ WATCH is read-only first.
 - broad scanning or aggressive crawling;
 - place private client data in the public repository;
 - claim confirmed root cause from incomplete evidence;
-- install or modify Windows Task Scheduler tasks;
+- install a SYSTEM, elevated, password-backed, or hidden scheduled task;
+- create one scheduled task per target;
 - automatically retry failed or interrupted work.
 
 ## Data rule
