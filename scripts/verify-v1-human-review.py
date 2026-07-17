@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from importlib.metadata import version as package_version
 from pathlib import Path
 
 from playwright.sync_api import ConsoleMessage, Page, sync_playwright
@@ -77,15 +76,12 @@ def _portfolio_review(root: Path, screenshots: Path) -> dict[str, object]:
     if missing_claims:
         raise AssertionError(f"README portfolio claims missing: {missing_claims}")
 
-    version = package_version("watch-automation-control-hub")
-
     for image in SELECTED_PORTFOLIO_SCREENSHOTS:
         if not (screenshots / image).is_file():
             raise AssertionError(f"Selected portfolio screenshot is missing: {image}")
 
     return {
         "result": "pass",
-        "project_version": version,
         "readme_claims_checked": required_claims,
         "missing_readme_claims": missing_claims,
         "selected_screenshots": SELECTED_PORTFOLIO_SCREENSHOTS,
@@ -169,7 +165,6 @@ def main() -> None:
         f"- Mobile pages reviewed: **{len(mobile_results)}**\n"
         "- Keyboard skip-link workflow: **PASS**\n"
         "- Browser console errors: **0**\n"
-        f"- Project version reviewed: **{portfolio['project_version']}**\n"
         "- README portfolio claims: **PASS**\n"
         "- Final screenshot shortlist: dashboard, targets, changes, actions.\n",
         encoding="utf-8",
