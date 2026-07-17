@@ -26,7 +26,7 @@ Set-Location $Root
 
 function Resolve-WatchPath {
     param(
-        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string]$Value,
         [Parameter(Mandatory = $true)]
         [string]$DefaultValue
@@ -217,7 +217,7 @@ if ($Action -eq "verify") {
 
     $Valid = $Mismatches.Count -eq 0
     Write-Manifest -Value ([ordered]@{
-        result = if ($Valid) { "verified" } else { "mismatch" }
+        result = $(if ($Valid) { "verified" } else { "mismatch" })
         task_name = $TaskName
         valid = $Valid
         mismatches = $Mismatches
@@ -235,7 +235,7 @@ if ($Action -eq "uninstall") {
     Write-Manifest -Value ([ordered]@{
         result = "uninstalled"
         task_name = $TaskName
-        state_preserved = Test-Path $StatePath
+        state_preserved = $(Test-Path $StatePath)
         operational_evidence_preserved = $true
     })
     exit 0
