@@ -200,7 +200,7 @@
 - [x] Produce one explicitly approved sanitized live-run example
 - [x] Review installation and first-run operator experience from a clean Windows checkout
 - [x] Confirm final portfolio screenshots and repository presentation through Playwright
-- [ ] Tag the first stable release
+- [x] Tag and publish the first stable release with a non-empty Windows package asset
 
 The hosted Windows scheduler proof validates the complete task lifecycle in a disposable real Windows environment. Installation on any particular long-lived workstation remains an optional deployment action rather than a release blocker.
 
