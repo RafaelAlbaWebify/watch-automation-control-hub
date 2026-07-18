@@ -4,6 +4,10 @@
 
 WATCH is a local-first IT automation and operational-control workbench. It manages approved public targets, executes repeatable read-only checks, records immutable evidence, detects changes, creates traceable actions, and generates review-ready reports.
 
+## Stable release
+
+WATCH **v0.1.0** is published as the first stable release. The release includes the non-empty `WATCH-v0.1.0-windows.zip` package and is verified by a repository-native release check.
+
 ## Portfolio purpose
 
 WATCH is the flagship project for the **IT Automation Engineer** path in Rafael Alba's technical portfolio. It is deliberately separated from OPSCORE infrastructure investigation, INFIOS application-support incident work, and TRACE IAM evidence.
@@ -191,7 +195,7 @@ Default API endpoints include health, targets, schedules, occurrences, attempts,
 - Retries require a reason, are limited to three attempts, and never rewrite the original occurrence.
 - The scheduled task uses the current interactive user, limited privilege, no stored credential, a 5–1,440 minute interval, and `IgnoreNew` overlap prevention.
 - One trigger invokes one foreground process and exits.
-- CI validates the scheduler manifest but deliberately leaves no persistent task on the hosted runner.
+- CI validates the scheduler manifest and the V1 release gate validates a temporary real task lifecycle without leaving a persistent task behind.
 
 ## Automated proof
 
@@ -206,7 +210,9 @@ Every pull request runs:
 - Windows wrapper and scheduler-manifest proof;
 - Windows review ZIP export including `artifacts/scheduler-proof/task-plan.json`;
 - Playwright Chromium semantic navigation and screenshots;
-- Linux, Windows, and visual proof-artifact upload.
+- Linux, Windows, clean-checkout, and visual proof-artifact upload.
+
+The V1 release gates additionally verify an approved bounded live check, a temporary real Windows Task Scheduler lifecycle, desktop/mobile Playwright human-style review, portfolio screenshot selection, release publication, and the stable Windows asset.
 
 ## Safety boundaries
 
@@ -221,11 +227,11 @@ src/watch/           domain, services, collectors, storage, reports, CLI, API, a
 tests/               unit, API, route, navigation, planner, runner, and operator proof
 samples/             public-safe sample inputs
 scripts/             setup, verification, scheduler, runner, browser proof, launch, and review export
-docs/                architecture, roadmap, safety, scheduler, and milestone evidence
-.github/workflows/   Linux, Windows, and browser verification
+docs/                architecture, roadmap, safety, scheduler, examples, and release evidence
+.github/workflows/   Linux, Windows, browser, V1 validation, and release verification
 .watch-data/         generated local state, ignored by Git
 ```
 
-## Next milestone
+## Roadmap status
 
-The original M0–M4 implementation roadmap is complete except for an explicitly approved sanitized live-run example. The project now moves into a V1 readiness review: real-workstation scheduler validation, clean-checkout installation testing, final portfolio evidence, and first stable release tagging.
+The original M0–M4 roadmap and the WATCH v0.1.0 release-readiness checklist are complete. Future work is intentionally deferred to post-v0.1 milestones such as approved notifications, integrations, external writes, and multi-user operation.

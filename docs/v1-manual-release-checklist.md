@@ -47,6 +47,8 @@ This validates the full Windows Task Scheduler lifecycle in a disposable Windows
 - [x] Confirm the human-like release-validation gate is `PASS`.
 - [x] Confirm the approved live evidence is sanitized and committed.
 - [x] Confirm temporary scheduler cleanup is successful.
-- [ ] Set the intended stable version and create the first stable tag/release.
+- [x] Set the stable version to `0.1.0` and publish the `v0.1.0` tag and GitHub Release.
+- [x] Verify the published release is not a draft or prerelease.
+- [x] Verify the non-empty `WATCH-v0.1.0-windows.zip` release asset.
 
-WATCH must not claim that a stable release exists until the final tag/release item is complete.
+The WATCH v0.1.0 release checklist is complete and backed by repository-native machine-readable evidence.

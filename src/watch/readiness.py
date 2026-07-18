@@ -36,7 +36,12 @@ REQUIRED_FILES = (
     "docs/safety-boundaries.md",
     "docs/windows-task-scheduler.md",
     "docs/v1-readiness.md",
+    "docs/v1-manual-release-checklist.md",
+    "docs/releases/v0.1.0.md",
     ".github/workflows/ci.yml",
+    ".github/workflows/v1-release-validation.yml",
+    ".github/workflows/release.yml",
+    ".github/workflows/release-verification.yml",
 )
 
 REQUIRED_COMMANDS = (
@@ -147,10 +152,9 @@ def render_readiness_markdown(report: ReadinessReport) -> str:
             "",
             (
                 "Automated readiness confirms repository structure, command exposure, "
-                "version metadata, and completed implementation roadmap items. Manual "
-                "blockers require an approved live target, the intended Windows "
-                "workstation, human review, or a release decision and are never marked "
-                "complete by CI."
+                "version metadata, release-validation workflows, and completed roadmap "
+                "items. Any unchecked item remains visible as an automated or manual "
+                "blocker rather than being inferred complete."
             ),
             "",
         ]
