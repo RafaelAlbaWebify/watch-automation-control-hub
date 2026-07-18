@@ -114,9 +114,9 @@ def mount_dashboard_route(app: FastAPI, workspace: Path) -> None:
     <p>Latest: {badge(latest)}</p>
   </article>
   <article class="card">
-    <h3>Partial or failed</h3>
-    <p class="metric">{non_success_runs}</p>
-    <p>{len(attempts)} retry attempts retained</p>
+    <h3>Retry attempts</h3>
+    <p class="metric">{len(attempts)}</p>
+    <p>{non_success_runs} partial or failed runs</p>
   </article>
   <article class="card">
     <h3>Open actions</h3>
