@@ -10,12 +10,12 @@ def test_current_repository_is_automatically_ready() -> None:
     assert report.automated_ready is True
     assert report.automated_blockers == []
     assert report.version == "0.1.0"
-    assert report.manual_blockers == ["Tag the first stable release"]
+    assert report.manual_blockers == []
 
     markdown = render_readiness_markdown(report)
     assert "Automated readiness: **PASS**" in markdown
     assert "## Manual blockers" in markdown
-    assert "Tag the first stable release" in markdown
+    assert "- None." in markdown
 
 
 def test_missing_required_file_blocks_readiness(tmp_path: Path) -> None:
