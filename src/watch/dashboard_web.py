@@ -108,7 +108,8 @@ def mount_dashboard_route(app: FastAPI, workspace: Path) -> None:
     <a href="/schedules">
       <strong>1 · Schedule</strong><span>Persisted cadence and target</span>
     </a>
-    <a href="/occurrences"><strong>2 · Occurrence</strong>\n<span>Atomic claim and execution state</span></a>
+    <a href="/occurrences"><strong>2 · Occurrence</strong>
+<span>Atomic claim and execution state</span></a>
     <a href="/runs">
       <strong>3 · Run</strong><span>Immutable collection evidence</span>
     </a>
