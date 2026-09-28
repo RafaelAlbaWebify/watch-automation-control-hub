@@ -403,9 +403,9 @@ pre code { color: inherit; }
   color: var(--slate-950);
   text-decoration: none;
 }
-.control-flow a:hover { border-color: #a9c8f2; background: var(--blue-100); }
-.control-flow strong { display: block; color: var(--blue-700); font-size: .78rem; }
-.control-flow span { display: block; margin-top: .35rem; color: var(--slate-600); font-size: .72rem; line-height: 1.35; }
+.control-flow a:hover {\n  border-color: #a9c8f2;\n  background: var(--blue-100);\n}
+.control-flow strong {\n  display: block;\n  color: var(--blue-700);\n  font-size: .78rem;\n}
+.control-flow span {\n  display: block;\n  margin-top: .35rem;\n  color: var(--slate-600);\n  font-size: .72rem;\n  line-height: 1.35;\n}
 .review-note {
   margin: .8rem 0 0;
   padding-top: .75rem;
