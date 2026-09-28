@@ -11,7 +11,7 @@ def test_operator_shell_uses_shared_operations_suite_foundation(tmp_path: Path) 
     assert response.status_code == 200
     assert 'class="app-shell"' in response.text
     assert 'class="sidebar" aria-label="WATCH application navigation"' in response.text
-    assert "Web Operations Control Hub" in response.text
+    assert "Workflow Automation &amp; Technical Control Hub" in response.text
     assert 'class="content-shell"' in response.text
     assert 'class="topbar"' in response.text
     assert "Local operator" in response.text
