@@ -156,9 +156,7 @@ def main() -> None:
 
             if console_errors:
                 raise AssertionError(
-                    "Unexpected browser console errors:
-" + "
-".join(console_errors)
+                    "Unexpected browser console errors:\\n" + "\\n".join(console_errors)
                 )
         except Exception:
             context.tracing.stop(path=trace_path)
