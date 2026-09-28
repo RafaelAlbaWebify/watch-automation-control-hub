@@ -573,7 +573,7 @@ def page(
   <aside class="sidebar" aria-label="WATCH application navigation">
     <div class="brand">
       <div class="brand-mark"><span class="brand-symbol">W</span> WATCH</div>
-      <p>Web Operations Control Hub</p>
+      <p>Workflow Automation &amp; Technical Control Hub</p>
     </div>
     <nav aria-label="Primary">{navigation(active_path)}</nav>
     <div class="sidebar-footer">Local-first · Evidence retained · No remediation</div>
