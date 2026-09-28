@@ -91,6 +91,42 @@ def mount_dashboard_route(app: FastAPI, workspace: Path) -> None:
             else '<p class="empty">No targets are registered.</p>'
         )
 
+        review_path = """
+<section class="panel review-path" aria-label="Automation review path">
+  <div class="panel-heading">
+    <div>
+      <p class="review-eyebrow">Portfolio review path</p>
+      <h3>Follow one controlled automation cycle</h3>
+      <p class="review-intro">
+        Review how WATCH turns a recurring schedule into traceable execution evidence,
+        change detection, and operator follow-up.
+      </p>
+    </div>
+    <span class="badge badge-success">deterministic demo</span>
+  </div>
+  <div class="control-flow" aria-label="Schedule to action control flow">
+    <a href="/schedules">
+      <strong>1 · Schedule</strong><span>Persisted cadence and target</span>
+    </a>
+    <a href="/occurrences"><strong>2 · Occurrence</strong>
+<span>Atomic claim and execution state</span></a>
+    <a href="/runs">
+      <strong>3 · Run</strong><span>Immutable collection evidence</span>
+    </a>
+    <a href="/changes">
+      <strong>4 · Change</strong><span>Previous-run delta detection</span>
+    </a>
+    <a href="/actions">
+      <strong>5 · Action</strong><span>Traceable operator follow-up</span>
+    </a>
+  </div>
+  <p class="review-note">
+    <strong>Demo thread:</strong> degraded-demo · 503 → 200 recovery ·
+    response 2450 ms → 310 ms · retained previous-run linkage · controlled retry evidence.
+  </p>
+</section>
+"""
+
         body = f"""
 <section class="grid" aria-label="Operational summary">
   <article class="card">
@@ -153,4 +189,4 @@ def mount_dashboard_route(app: FastAPI, workspace: Path) -> None:
   {_recent_runs_table(runs)}
 </section>
 """
-        return page("Operator dashboard", body)
+        return page("Operator dashboard", review_path + body)
