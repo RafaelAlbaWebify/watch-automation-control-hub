@@ -57,8 +57,8 @@ def main() -> None:
             _assert_text(page, "503 → 200 recovery")
             _assert_text(page, "2450 ms → 310 ms")
             review_path = page.get_by_label("Automation review path")
-            assert review_path.get_by_role("link", name="1 · Schedule Persisted cadence and target").get_attribute("href") == "/schedules"
-            assert review_path.get_by_role("link", name="5 · Action Traceable operator follow-up").get_attribute("href") == "/actions"
+            schedule_link = review_path.get_by_role(\n                "link", name="1 · Schedule Persisted cadence and target"\n            )\n            assert schedule_link.get_attribute("href") == "/schedules"
+            action_link = review_path.get_by_role(\n                "link", name="5 · Action Traceable operator follow-up"\n            )\n            assert action_link.get_attribute("href") == "/actions"
             _assert_text(page, "Target drill-down")
             _assert_text(page, "Five most recent workflow runs")
             _assert_text(page, "Retry attempts")
