@@ -367,10 +367,56 @@ code {
   overflow-wrap: anywhere;
 }
 pre code { color: inherit; }
+
+.review-path {
+  margin-top: 0;
+  padding: 1.15rem;
+  border-color: #bfd5f2;
+  background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%);
+}
+.review-path .panel-heading { align-items: flex-start; }
+.review-eyebrow {
+  margin: 0 0 .2rem;
+  color: var(--blue-700);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.review-intro {
+  max-width: 52rem;
+  margin: .35rem 0 0;
+  color: var(--slate-600);
+  font-size: .82rem;
+}
+.control-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .65rem;
+}
+.control-flow a {
+  min-height: 5.25rem;
+  padding: .75rem;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--slate-950);
+  text-decoration: none;
+}
+.control-flow a:hover { border-color: #a9c8f2; background: var(--blue-100); }
+.control-flow strong { display: block; color: var(--blue-700); font-size: .78rem; }
+.control-flow span { display: block; margin-top: .35rem; color: var(--slate-600); font-size: .72rem; line-height: 1.35; }
+.review-note {
+  margin: .8rem 0 0;
+  padding-top: .75rem;
+  border-top: 1px solid var(--slate-200);
+  color: var(--slate-700);
+  font-size: .78rem;
+}
 @media (max-width: 960px) {
   :root { --sidebar-width: 13.5rem; }
   main { padding-inline: 1.35rem; }
-  .dashboard-columns { grid-template-columns: 1fr; }
+  .dashboard-columns { grid-template-columns: 1fr; }\n  .control-flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 720px) {
   .sidebar {
@@ -396,7 +442,7 @@ pre code { color: inherit; }
   .topbar { min-height: 3.2rem; padding: .55rem 1rem; }
   main { padding: 1.25rem 1rem 2rem; }
   .page-header { margin-bottom: 1rem; padding-bottom: 1rem; }
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }\n  .control-flow { grid-template-columns: 1fr; }
   .card { min-height: 7rem; }
 }
 @media (max-width: 430px) {
